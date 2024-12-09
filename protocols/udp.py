@@ -1,0 +1,13 @@
+class udp:
+    src_port = None
+    dst_port = None
+    
+    def __init__(self, src_port, dst_port):
+        self.src_port = src_port
+        self.dst_port = dst_port
+        
+    def __eq__(self, value):
+        return self.src_port == value.src_port and self.dst_port == value.dst_port
+    
+    def __str__(self):
+        return "UDP: " + str(self.src_port) + " -> " + str(self.dst_port)
