@@ -4,8 +4,14 @@ from protocols.ipv4 import ipv4
 from protocols.ipv6 import ipv6
 from protocols.tcp import tcp
 from protocols.udp import udp
+from protocols.arp import arp
 from node import Node
 
+GATEWAY_IP = "192.168.1.1"
+GATEWAY_MAC = "c0:56:27:73:46:0b"
+DEFAULT = "00:00:00:00:00:00"
+BROADCAST = "ff:ff:ff:ff:ff:ff"
+PHONE = "3c:cd:5d:a2:a9:d7"
 
 def merge_nodes_on_port(children, port_attr, merge_attr):
     """
@@ -35,7 +41,7 @@ def merge_nodes_on_port(children, port_attr, merge_attr):
 
 
 
-def analyser(cap, device_ipv4, device_ipv6):
+def analyser(cap, device_ipv4, device_ipv6, device_mac):
     counter = 0
     # create list of patterns
     patterns = []
@@ -63,8 +69,12 @@ def analyser(cap, device_ipv4, device_ipv6):
         
         
         try:
-            ip_src = packet.ip.src
-            ip_dst = packet.ip.dst
+            try:
+                ip_src = packet.ip.src
+                ip_dst = packet.ip.dst
+            except AttributeError as e:
+                ip_src = packet.ipv6.src
+                ip_dst = packet.ipv6.dst
             if ip_src == device_ipv4 or ip_dst == device_ipv4 or ip_src == device_ipv6 or ip_dst == device_ipv6:
                 # Packet is linked to our device
                 counter += 1
@@ -150,7 +160,35 @@ def analyser(cap, device_ipv4, device_ipv6):
                 # TODO
                             
         except AttributeError as e:
-            pass
+            # Packet is not an IP Packet
+            try:
+                # Parse the ARP packets
+                arp_type_number = int(packet.arp.opcode.show)
+                sha = packet.arp.src_hw_mac.show
+                spa = packet.arp.src_proto_ipv4.show
+                tha = packet.arp.dst_hw_mac.show
+                tpa = packet.arp.dst_proto_ipv4.show
+                arp_type = "request" if arp_type_number == 1 else "reply"
+                arp_packet = arp(arp_type, sha, spa, tha, tpa)
+                arp_packet.simplify(device_ipv4, device_mac)
+                my_node_0 = None
+                for node in patterns:
+                    if node.protocol == "arp":
+                        if node.element == arp_packet:
+                            # We found a node with the same ARP data
+                            my_node_0 = node
+                            break
+                if my_node_0 is None:
+                    # No firt layer found
+                    my_node_0 = Node()
+                    my_node_0.element = arp_packet
+                    my_node_0.protocol = "arp"
+                    my_node_0.childrens = []
+                    patterns.append(my_node_0)
+            except AttributeError as e:
+                # Packet is not an ARP Packet
+                print(packet)
+                pass
     
     
     # ----------------------------------------
@@ -241,5 +279,6 @@ if __name__ == "__main__":
     # Get the device IP
     device_ipv4 = "192.168.1.141"
     device_ipv6 = ""
+    device_mac = "00:17:88:74:c2:dc"
     # Analyze packets
-    analyser(cap, device_ipv4, device_ipv6)
+    analyser(cap, device_ipv4, device_ipv6, device_mac)
