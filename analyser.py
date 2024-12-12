@@ -5,6 +5,7 @@ from protocols.ipv6 import ipv6
 from protocols.tcp import tcp
 from protocols.udp import udp
 from protocols.arp import arp
+from protocols.http import http
 from node import Node
 
 GATEWAY_IP = "192.168.1.1"
@@ -12,6 +13,14 @@ GATEWAY_MAC = "c0:56:27:73:46:0b"
 DEFAULT = "00:00:00:00:00:00"
 BROADCAST = "ff:ff:ff:ff:ff:ff"
 PHONE = "3c:cd:5d:a2:a9:d7"
+
+def remove_duplicates(obj_list):
+    unique_list = []
+    for obj in obj_list:
+        if obj not in unique_list:
+            unique_list.append(obj)
+    return unique_list
+
 
 def merge_nodes_on_port(children, port_attr, merge_attr):
     """
@@ -38,7 +47,9 @@ def merge_nodes_on_port(children, port_attr, merge_attr):
             else:
                 j += 1
         i += 1
-
+    # Deduplicate children of children[i] (last layer so no need to merge, only deduplicate)
+    for node in children:
+        node.childrens = remove_duplicates(node.childrens)
 
 
 def analyser(cap, device_ipv4, device_ipv6, device_mac):
@@ -102,10 +113,7 @@ def analyser(cap, device_ipv4, device_ipv6, device_mac):
                             break
                 if my_node_0 is None:
                     # No firt layer found
-                    my_node_0 = Node()
-                    my_node_0.element = ip
-                    my_node_0.protocol = "ipv4"
-                    my_node_0.childrens = []
+                    my_node_0 = Node(ip, "ipv4", childrens=[], layer=0)
                     patterns.append(my_node_0)
                     
                 # ----------------------------------------
@@ -124,10 +132,7 @@ def analyser(cap, device_ipv4, device_ipv6, device_mac):
                                 break
                     if my_node_1 is None:
                         # No second layer found
-                        my_node_1 = Node()
-                        my_node_1.element = tcp_info
-                        my_node_1.protocol = "tcp"
-                        my_node_1.childrens = []
+                        my_node_1 = Node(tcp_info, "tcp", layer=1, childrens=[])
                         my_node_0.childrens.append(my_node_1)
                 except AttributeError as e:
                     # Not a TCP packet
@@ -145,10 +150,7 @@ def analyser(cap, device_ipv4, device_ipv6, device_mac):
                                     break
                         if my_node_1 is None:
                             # No second layer found
-                            my_node_1 = Node()
-                            my_node_1.element = udp_info
-                            my_node_1.protocol = "udp"
-                            my_node_1.childrens = []
+                            my_node_1 = Node(udp_info, "udp", layer=1, childrens=[])
                             my_node_0.childrens.append(my_node_1)
                     except AttributeError as e:
                         # Not a UDP packet
@@ -157,7 +159,28 @@ def analyser(cap, device_ipv4, device_ipv6, device_mac):
                 # ----------------------------------------
                 # Third layer (http, dns, etc)
                 # ----------------------------------------
-                # TODO
+                # Check http case
+                if "HTTP" in str(packet.layers):
+                    try:
+                        # Get the method and the request URI
+                        method = packet.http.request_method.show
+                        uri = packet.http.request_uri.show
+                        # To simplify queries/answers, we will not fill in the "response" field
+                        http_packet = http(method, uri)
+                        my_node_2 = None
+                        for node in my_node_1.childrens:
+                            if node.protocol == "http":
+                                if node.element == http_packet:
+                                    # We found a node with the same HTTP data
+                                    my_node_2 = node
+                                    break
+                        if my_node_2 is None:
+                            # No third layer found
+                            my_node_2 = Node(http_packet, "http", layer=2, childrens=[])
+                            my_node_1.childrens.append(my_node_2)
+                    except AttributeError as e:
+                        # HTTP packet is a response
+                        pass
                             
         except AttributeError as e:
             # Packet is not an IP Packet
@@ -180,16 +203,12 @@ def analyser(cap, device_ipv4, device_ipv6, device_mac):
                             break
                 if my_node_0 is None:
                     # No firt layer found
-                    my_node_0 = Node()
-                    my_node_0.element = arp_packet
-                    my_node_0.protocol = "arp"
-                    my_node_0.childrens = []
+                    my_node_0 = Node(arp_packet, "arp", childrens=[], layer=0)
                     patterns.append(my_node_0)
             except AttributeError as e:
                 # Packet is not an ARP Packet
                 print(packet)
                 pass
-    
     
     # ----------------------------------------
     # Simplification process
@@ -251,8 +270,6 @@ def analyser(cap, device_ipv4, device_ipv6, device_mac):
                 if child.element.src_port == 80 or child.element.src_port == 443:
                     child.element.dst_port = None
     
-    # TODO : Create function to simplify the following code
-    
     for child in patterns:
         if child.protocol in ["ipv4", "ipv6", "udp"]:
             # Merge nodes on dst_port
@@ -260,7 +277,8 @@ def analyser(cap, device_ipv4, device_ipv6, device_mac):
             # Merge nodes on src_port
             merge_nodes_on_port(child.childrens, "src_port", "dst_port")
                     
-                    
+    # Sorting the patterns by protocol
+    patterns.sort(key=lambda x: x.protocol)                
     
     for node in patterns:
         node.print_tree()
