@@ -8,6 +8,8 @@ from protocols.arp import arp
 from protocols.http import http
 from protocols.dns import dns
 from protocols.mdns import mdns
+from protocols.dhcp import dhcp
+from protocols.igmp import igmp
 from node import Node
 
 GATEWAY_IP = "192.168.1.1"
@@ -15,8 +17,36 @@ GATEWAY_MAC = "c0:56:27:73:46:0b"
 GATEWAY_IPV6 = "fddd:ed18:f05b::1"
 GATEWAY_LOCAL_IPV6 = "fe80::c256:27ff:fe73:460b"
 DEFAULT = "00:00:00:00:00:00"
-BROADCAST = "ff:ff:ff:ff:ff:ff"
+BROADCAST = "255.255.255.255"
+BROADCAST_IPV6 = "ff:ff:ff:ff:ff:ff"
 PHONE = "3c:cd:5d:a2:a9:d7"
+IGMPV3 = "224.0.0.22"
+
+
+# Print iterations progress
+# Function from https://stackoverflow.com/questions/3173320/text-progress-bar-in-terminal-with-block-characters
+def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r"):
+    """
+    Call in a loop to create terminal progress bar
+    @params:
+        iteration   - Required  : current iteration (Int)
+        total       - Required  : total iterations (Int)
+        prefix      - Optional  : prefix string (Str)
+        suffix      - Optional  : suffix string (Str)
+        decimals    - Optional  : positive number of decimals in percent complete (Int)
+        length      - Optional  : character length of bar (Int)
+        fill        - Optional  : bar fill character (Str)
+        printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
+    """
+    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
+    filledLength = int(length * iteration // total)
+    bar = fill * filledLength + '-' * (length - filledLength)
+    print(f'\r{prefix} |{bar}| {percent}% {suffix}', end = printEnd)
+    # Print New Line on Complete
+    if iteration == total: 
+        print()
+
+
 
 def remove_duplicates(obj_list):
     unique_list = []
@@ -40,8 +70,9 @@ def merge_nodes_on_port(children, port_attr, merge_attr):
         j = i + 1
         while j < len(children):
             if (
-                getattr(children[i].element, port_attr) == getattr(children[j].element, port_attr)
+                children[i].protocol in ["tcp", "udp"]
                 and children[i].protocol == children[j].protocol
+                and getattr(children[i].element, port_attr) == getattr(children[j].element, port_attr)
             ):
                 # Merge child nodes
                 children[i].childrens.extend(children[j].childrens)
@@ -57,6 +88,8 @@ def merge_nodes_on_port(children, port_attr, merge_attr):
 
 
 def analyser(cap, device_ipv4, device_ipv6, device_mac):
+    print("Progress: Loading packets...")
+    cap.load_packets()
     counter = 0
     # create list of patterns
     patterns = []
@@ -67,12 +100,21 @@ def analyser(cap, device_ipv4, device_ipv6, device_mac):
     dns_map.add_ipv4("gateway", GATEWAY_IP)
     dns_map.add_ipv6("gateway", GATEWAY_IPV6)
     dns_map.add_ipv6("gateway-local", GATEWAY_LOCAL_IPV6)
+    dns_map.add_ipv4("broadcast", BROADCAST)
+    dns_map.add_ipv6("broadcast", BROADCAST_IPV6)
+    dns_map.add_ipv4("igmpv3", IGMPV3)
     # mdns broadcast
     dns_map.add_ipv4("mdns", "224.0.0.251")
     dns_map.add_ipv6("mdns", "ff02::fb")
     
+    number_of_packets = len(cap)
+    i_packet = 0
     # MAIN LOOP
+    print("Progress: Analyzing traces...")
     for packet in cap:
+        i_packet += 1
+        printProgressBar(i_packet, number_of_packets, prefix = 'Progress:', suffix = 'Complete', length = 50)
+        
         # parse the dns packets for the future dns map
         # Get the DNS packets
         if hasattr(packet, 'dns'):
@@ -99,7 +141,7 @@ def analyser(cap, device_ipv4, device_ipv6, device_mac):
             except AttributeError as e:
                 ip_src = packet.ipv6.src
                 ip_dst = packet.ipv6.dst
-            if ip_src == device_ipv4 or ip_dst == device_ipv4 or ip_src == device_ipv6 or ip_dst == device_ipv6:
+            if ip_src == device_ipv4 or ip_dst == device_ipv4 or ip_src == device_ipv6 or ip_dst == device_ipv6 or ip_dst == BROADCAST or ip_dst == BROADCAST_IPV6:
                 # Packet is linked to our device
                 counter += 1
                 
@@ -166,6 +208,29 @@ def analyser(cap, device_ipv4, device_ipv6, device_mac):
                             my_node_0.childrens.append(my_node_1)
                     except AttributeError as e:
                         # Not a UDP packet
+                        pass
+                if my_node_1 is None:
+                    # IGMP packet
+                    try:
+                        igmp_type = "membership report" if packet.igmp.type.show in ["0x22", "0x16", "0x12"] else "membership query" if packet.igmp.type.show == "0x11" else "leave group"
+                        igmp_version = int(packet.igmp.version)
+                        igmp_group = packet.igmp.maddr
+                        igmp_packet = igmp(igmp_version, igmp_type, igmp_group)
+                        igmp_packet.simplify()
+                        my_node_1 = None
+                        for node in my_node_0.childrens:
+                            if node.protocol == "igmp":
+                                if node.element == igmp_packet:
+                                    # We found a node with the same IGMP data
+                                    my_node_1 = node
+                                    break
+                        if my_node_1 is None:
+                            # No third layer found
+                            my_node_1 = Node(igmp_packet, "igmp", layer=2, childrens=[])
+                            my_node_0.childrens.append(my_node_1)
+                    except AttributeError as e:
+                        # Not an IGMP packet
+                        #print(packet)
                         pass
                 
                 # ----------------------------------------
@@ -274,6 +339,33 @@ def analyser(cap, device_ipv4, device_ipv6, device_mac):
                             # Dns packet with error (ex: DNS in a icmp destination unreachable packet)
                             #print(packet)
                             pass
+                elif "DHCP" in str(packet.layers):
+                    # DHCP packet
+                    try:
+                        dhcp_type_value = int(packet.dhcp.option_type.raw_value[-2:])
+                        dhcp_type_name = "discover" if dhcp_type_value == 1 else "offer" if dhcp_type_value == 2 else "request" if dhcp_type_value == 3 else "ack"
+                        client_mac = packet.dhcp.hw_mac_addr.show
+                        dhcp_packet = dhcp(dhcp_type_name, client_mac)
+                        my_node_2 = None
+                        for node in my_node_1.childrens:
+                            if node.protocol == "dhcp":
+                                if node.element == dhcp_packet:
+                                    # We found a node with the same DHCP data
+                                    my_node_2 = node
+                                    break
+                        if my_node_2 is None:
+                            # No third layer found
+                            my_node_2 = Node(dhcp_packet, "dhcp", layer=2, childrens=[])
+                            my_node_1.childrens.append(my_node_2)
+                    except AttributeError as e:
+                        # DHCP packet with error (ex: DHCP in a icmp destination unreachable packet)
+                        #print(packet)
+                        print(e)
+                        pass
+                elif "ICMP" in str(packet.layers):
+                    # ICMP packet
+                    # Not supported yet
+                    pass
                 else:
                     # packet have no third layer handled before
                     # print(packet.layers)
@@ -312,6 +404,7 @@ def analyser(cap, device_ipv4, device_ipv6, device_mac):
     # ----------------------------------------
     # Simplification process
     # ----------------------------------------
+    print("Progress: Simplifying patterns...")
     # First layer
     # replace all the ip source and destination by domain name if possible
     for node in patterns:
@@ -370,7 +463,7 @@ def analyser(cap, device_ipv4, device_ipv6, device_mac):
                     child.element.dst_port = None
     
     for child in patterns:
-        if child.protocol in ["ipv4", "ipv6", "udp"]:
+        if child.protocol in ["ipv4", "ipv6"]:
             # Merge nodes on dst_port
             merge_nodes_on_port(child.childrens, "dst_port", "src_port")
             # Merge nodes on src_port
@@ -391,6 +484,8 @@ def analyser(cap, device_ipv4, device_ipv6, device_mac):
                                 for new_dns_node in new_children:
                                     if new_dns_node.protocol == "dns":
                                         if new_dns_node.element.merge(dns_node.element):
+                                            new_dns_node.element.domain_name = remove_duplicates(new_dns_node.element.domain_name)
+                                            # new_dns_node.element.qtype = remove_duplicates(new_dns_node.element.qtype)
                                             merged = True
                                             break
                                 if not merged:
