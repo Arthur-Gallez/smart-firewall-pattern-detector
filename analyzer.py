@@ -1,4 +1,6 @@
 import pyshark
+import subprocess
+import dpkt
 from dnsMap import DNSMap
 from protocols.ipv4 import ipv4
 from protocols.ipv6 import ipv6
@@ -100,7 +102,7 @@ def merge_nodes_on_port(children, port_attr, merge_attr):
         node.childrens = remove_duplicates(node.childrens)
 
 
-def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_mac:str):
+def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_mac:str, number_of_packets:int):
     """
     Analyzes packets from a capture file and generates a pattern tree.
 
@@ -111,9 +113,8 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
         device_mac (str): MAC address of the device.
     """
     
-    
-    print("Progress: Loading packets...")
-    cap.load_packets()
+    #print("Progress: Loading packets...")
+    #cap.load_packets()
     counter = 0
     # create list of patterns
     patterns = []
@@ -137,7 +138,7 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
     dns_map.add_ipv4("mdns", "224.0.0.251")
     dns_map.add_ipv6("mdns", "ff02::fb")
     
-    number_of_packets = len(cap)
+    # number_of_packets = len(cap)
     i_packet = 0
     # MAIN LOOP
     print("Progress: Analyzing traces...")
@@ -583,12 +584,43 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
     
     return patterns
 
+def convert_pcapng_to_pcap(pcapng_file, pcap_file):
+    try:
+        # Construct the tshark command
+        command = [
+            "tshark",
+            "-F", "pcap",          # Specify output format as PCAP
+            "-r", pcapng_file,     # Read from the PCAPNG file
+            "-w", pcap_file        # Write to the PCAP file
+        ]
+        # Run the command
+        subprocess.run(command, check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error during conversion: {e}")
+    except FileNotFoundError:
+        print("Error: tshark not found. Make sure it is installed and in your PATH.")
+
+def count_packets_pcap(file_path):
+    with open(file_path, 'rb') as f:
+        reader = dpkt.pcap.Reader(f)
+        packet_count = sum(1 for _ in reader)
+    return packet_count
+
+
 if __name__ == "__main__":
+    file_path = 'traces/philips-hue.pcap'
+    # Convert the PCAPNG file to PCAP
+    convert_pcapng_to_pcap(file_path, "traces/count.pcap")
+    number_of_packets = count_packets_pcap("traces/count.pcap")
+    # Delete the count file
+    subprocess.run(["rm", "traces/count.pcap"])
+
+
     # Read the PCAP file
-    cap = pyshark.FileCapture('traces/philips-hue.pcap')
+    cap = pyshark.FileCapture(file_path)
     # Get the device IP
     device_ipv4 = "192.168.1.141"
     device_ipv6 = "fe80::217:88ff:fe74:c2dc"
     device_mac = "00:17:88:74:c2:dc"
     # Analyze packets
-    patterns = analyzer(cap, device_ipv4, device_ipv6, device_mac)
+    patterns = analyzer(cap, device_ipv4, device_ipv6, device_mac, number_of_packets)
