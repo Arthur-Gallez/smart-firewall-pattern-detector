@@ -24,6 +24,7 @@ PHONE_IPV6 = "3c:cd:5d:a2:a9:d7"
 PHONE = "192.168.1.222"
 IGMPV3 = "224.0.0.22"
 SSDP = "239.255.255.250"
+INCLUDE_PHONE = False
 
 
 # Print iterations progress
@@ -52,6 +53,15 @@ def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, 
 
 
 def remove_duplicates(obj_list):
+    """
+    Removes duplicates from a list of objects.
+
+    Args:
+        obj_list: List of objects to process.
+
+    Returns:
+        List: List of objects without duplicates.
+    """
     unique_list = []
     for obj in obj_list:
         if obj not in unique_list:
@@ -90,7 +100,18 @@ def merge_nodes_on_port(children, port_attr, merge_attr):
         node.childrens = remove_duplicates(node.childrens)
 
 
-def analyser(cap, device_ipv4, device_ipv6, device_mac):
+def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_mac:str):
+    """
+    Analyzes packets from a capture file and generates a pattern tree.
+
+    Args:
+        cap (pyshark.FileCapture): Capture file to analyze.
+        device_ipv4 (str): IPv4 address of the device.
+        device_ipv6 (str): IPv6 address of the device.
+        device_mac (str): MAC address of the device.
+    """
+    
+    
     print("Progress: Loading packets...")
     cap.load_packets()
     counter = 0
@@ -150,7 +171,10 @@ def analyser(cap, device_ipv4, device_ipv6, device_mac):
             except AttributeError as e:
                 ip_src = packet.ipv6.src
                 ip_dst = packet.ipv6.dst
-            if ip_src == device_ipv4 or ip_dst == device_ipv4 or ip_src == device_ipv6 or ip_dst == device_ipv6 or ip_dst == BROADCAST or ip_dst == BROADCAST_IPV6 or ip_dst == SSDP:
+            phone_condition = False
+            if INCLUDE_PHONE:
+                phone_condition = ip_src == PHONE_IPV6 or ip_dst == PHONE_IPV6 or ip_src == PHONE or ip_dst == PHONE
+            if ip_src == device_ipv4 or ip_dst == device_ipv4 or ip_src == device_ipv6 or ip_dst == device_ipv6 or ip_dst == BROADCAST or ip_dst == BROADCAST_IPV6 or ip_dst == SSDP or phone_condition:
                 # Packet is linked to our device
                 counter += 1
                 
@@ -538,6 +562,9 @@ def analyser(cap, device_ipv4, device_ipv6, device_mac):
                             new_children.append(dns_node)
                     node.childrens = new_children
                     
+    
+    # Printing the dns map
+    dns_map.print_map()
                     
     # Sorting the patterns by protocol
     patterns.sort(key=lambda x: x.protocol)                
@@ -553,6 +580,8 @@ def analyser(cap, device_ipv4, device_ipv6, device_mac):
         for child in node.childrens:
             c += len(child.childrens)
     print("Total number of nodes after simplification: " + str(c))
+    
+    return patterns
 
 if __name__ == "__main__":
     # Read the PCAP file
@@ -562,4 +591,4 @@ if __name__ == "__main__":
     device_ipv6 = "fe80::217:88ff:fe74:c2dc"
     device_mac = "00:17:88:74:c2:dc"
     # Analyze packets
-    analyser(cap, device_ipv4, device_ipv6, device_mac)
+    patterns = analyzer(cap, device_ipv4, device_ipv6, device_mac)
