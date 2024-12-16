@@ -1,6 +1,7 @@
 import pyshark
 import subprocess
 import dpkt
+import os
 from dnsMap import DNSMap
 from protocols.ipv4 import ipv4
 from protocols.ipv6 import ipv6
@@ -613,7 +614,7 @@ if __name__ == "__main__":
     convert_pcapng_to_pcap(file_path, "traces/count.pcap")
     number_of_packets = count_packets_pcap("traces/count.pcap")
     # Delete the count file
-    subprocess.run(["rm", "traces/count.pcap"])
+    os.remove("traces/count.pcap")
 
 
     # Read the PCAP file
