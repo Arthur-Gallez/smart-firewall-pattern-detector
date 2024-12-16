@@ -10,6 +10,7 @@ from protocols.dns import dns
 from protocols.mdns import mdns
 from protocols.dhcp import dhcp
 from protocols.igmp import igmp
+from protocols.ssdp import ssdp
 from node import Node
 
 GATEWAY_IP = "192.168.1.1"
@@ -19,8 +20,10 @@ GATEWAY_LOCAL_IPV6 = "fe80::c256:27ff:fe73:460b"
 DEFAULT = "00:00:00:00:00:00"
 BROADCAST = "255.255.255.255"
 BROADCAST_IPV6 = "ff:ff:ff:ff:ff:ff"
-PHONE = "3c:cd:5d:a2:a9:d7"
+PHONE_IPV6 = "3c:cd:5d:a2:a9:d7"
+PHONE = "192.168.1.222"
 IGMPV3 = "224.0.0.22"
+SSDP = "239.255.255.250"
 
 
 # Print iterations progress
@@ -97,12 +100,18 @@ def analyser(cap, device_ipv4, device_ipv6, device_mac):
     # Adding special cases to the DNS map
     dns_map.add_ipv4("self", device_ipv4)
     dns_map.add_ipv6("self", device_ipv6)
+    # Gateway
     dns_map.add_ipv4("gateway", GATEWAY_IP)
     dns_map.add_ipv6("gateway", GATEWAY_IPV6)
     dns_map.add_ipv6("gateway-local", GATEWAY_LOCAL_IPV6)
+    # Phone
+    dns_map.add_ipv6("phone", PHONE_IPV6)
+    dns_map.add_ipv4("phone", PHONE)
+    # Broadcast and other special cases
     dns_map.add_ipv4("broadcast", BROADCAST)
     dns_map.add_ipv6("broadcast", BROADCAST_IPV6)
     dns_map.add_ipv4("igmpv3", IGMPV3)
+    dns_map.add_ipv4("ssdp", SSDP)
     # mdns broadcast
     dns_map.add_ipv4("mdns", "224.0.0.251")
     dns_map.add_ipv6("mdns", "ff02::fb")
@@ -141,7 +150,7 @@ def analyser(cap, device_ipv4, device_ipv6, device_mac):
             except AttributeError as e:
                 ip_src = packet.ipv6.src
                 ip_dst = packet.ipv6.dst
-            if ip_src == device_ipv4 or ip_dst == device_ipv4 or ip_src == device_ipv6 or ip_dst == device_ipv6 or ip_dst == BROADCAST or ip_dst == BROADCAST_IPV6:
+            if ip_src == device_ipv4 or ip_dst == device_ipv4 or ip_src == device_ipv6 or ip_dst == device_ipv6 or ip_dst == BROADCAST or ip_dst == BROADCAST_IPV6 or ip_dst == SSDP:
                 # Packet is linked to our device
                 counter += 1
                 
@@ -345,6 +354,8 @@ def analyser(cap, device_ipv4, device_ipv6, device_mac):
                         dhcp_type_value = int(packet.dhcp.option_type.raw_value[-2:])
                         dhcp_type_name = "discover" if dhcp_type_value == 1 else "offer" if dhcp_type_value == 2 else "request" if dhcp_type_value == 3 else "ack"
                         client_mac = packet.dhcp.hw_mac_addr.show
+                        if client_mac == device_mac:
+                            client_mac = "self"
                         dhcp_packet = dhcp(dhcp_type_name, client_mac)
                         my_node_2 = None
                         for node in my_node_1.childrens:
@@ -366,6 +377,25 @@ def analyser(cap, device_ipv4, device_ipv6, device_mac):
                     # ICMP packet
                     # Not supported yet
                     pass
+                elif "SSDP" in str(packet.layers):
+                    # SSDP packet
+                    try:
+                        is_response = True if my_node_0.element.dst == device_ipv4 or my_node_0.element.dst == device_ipv6 else False
+                        method = "M-SEARCH" if "M-SEARCH" in packet.ssdp._all_fields[""] else "NOTIFY" if "NOTIFY" in packet.ssdp._all_fields[""] else "UNKNOWN"
+                        ssdp_packet = ssdp(method, is_response)
+                        my_node_2 = None
+                        for node in my_node_1.childrens:
+                            if node.protocol == "ssdp":
+                                if node.element == ssdp_packet:
+                                    # We found a node with the same SSDP data
+                                    my_node_2 = node
+                                    break
+                        if my_node_2 is None:
+                            # No third layer found
+                            my_node_2 = Node(ssdp_packet, "ssdp", layer=2, childrens=[])
+                            my_node_1.childrens.append(my_node_2)
+                    except AttributeError as e:
+                        print(e)
                 else:
                     # packet have no third layer handled before
                     # print(packet.layers)
