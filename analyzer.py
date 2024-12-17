@@ -2,6 +2,7 @@ import pyshark
 import subprocess
 import dpkt
 import os
+from devicesFinder import Device, findDevices
 from dnsMap import DNSMap
 from protocols.ipv4 import ipv4
 from protocols.ipv6 import ipv6
@@ -619,6 +620,10 @@ if __name__ == "__main__":
 
     # Read the PCAP file
     cap = pyshark.FileCapture(file_path)
+
+    # Find devices
+    devices = findDevices(cap)
+
     # Get the device IP
     device_ipv4 = "192.168.1.141"
     device_ipv6 = "fe80::217:88ff:fe74:c2dc"
