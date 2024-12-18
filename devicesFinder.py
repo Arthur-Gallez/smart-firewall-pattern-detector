@@ -1,4 +1,5 @@
 import pyshark
+from progressBar import printProgressBar
 
 class Device:
     def __init__(self, name: str = "Unknown", ipv4: str = "", ipv6: str = "", mac: str = ""):
@@ -36,12 +37,16 @@ def isInList(devices, data: str):
             return d
     return None
 
-def findDevices(cap: pyshark.FileCapture):
+def findDevices(cap: pyshark.FileCapture, number_of_packets: int):
     filtered_ipv4 = ["0.0.0.0", "255.255.255.255"]
     filtered_ipv6 = ["::"] # TODO fill in with broadcast adresses
     devices = []
 
+    print("Finding devices...")
+    i_packet = 0
     for packet in cap:
+        printProgressBar(i_packet, number_of_packets, prefix = 'Progress:', suffix = 'Complete', length = 50)
+        i_packet += 1
         mac = ipv4 = ipv6 = None
 
         # Extract Ethernet (MAC) layer
@@ -79,6 +84,7 @@ def findDevices(cap: pyshark.FileCapture):
             new_device = Device(mac=mac, ipv4=ipv4, ipv6=ipv6, name=name)
             devices.append(new_device)
 
+    print()
     for device in devices:
         print(device)
 

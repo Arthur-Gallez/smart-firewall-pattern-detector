@@ -15,6 +15,7 @@ from protocols.mdns import mdns
 from protocols.dhcp import dhcp
 from protocols.igmp import igmp
 from protocols.ssdp import ssdp
+from progressBar import printProgressBar
 from node import Node
 
 GATEWAY_IP = "192.168.1.1"
@@ -29,30 +30,6 @@ PHONE = "192.168.1.222"
 IGMPV3 = "224.0.0.22"
 SSDP = "239.255.255.250"
 INCLUDE_PHONE = False
-
-
-# Print iterations progress
-# Function from https://stackoverflow.com/questions/3173320/text-progress-bar-in-terminal-with-block-characters
-def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r"):
-    """
-    Call in a loop to create terminal progress bar
-    @params:
-        iteration   - Required  : current iteration (Int)
-        total       - Required  : total iterations (Int)
-        prefix      - Optional  : prefix string (Str)
-        suffix      - Optional  : suffix string (Str)
-        decimals    - Optional  : positive number of decimals in percent complete (Int)
-        length      - Optional  : character length of bar (Int)
-        fill        - Optional  : bar fill character (Str)
-        printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
-    """
-    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
-    filledLength = int(length * iteration // total)
-    bar = fill * filledLength + '-' * (length - filledLength)
-    print(f'\r{prefix} |{bar}| {percent}% {suffix}', end = printEnd)
-    # Print New Line on Complete
-    if iteration == total: 
-        print()
 
 
 
@@ -330,7 +307,7 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                         # Error in the DNS packet process. It could be a mDNS packet
                         if "MDNS" in str(packet.layers):
                             try:
-                                is_response = True if packet.mdns.get_field_value("dns.flags.response") == "1" else False
+                                is_response = True if packet.mdns.get_field_value("dns.flags.response") == "True" else False
                                 mdns_packets = []
                                 if is_response:
                                     mdns_packet = mdns(True, "", [])
@@ -611,18 +588,20 @@ def count_packets_pcap(file_path):
 
 if __name__ == "__main__":
     file_path = 'traces/philips-hue.pcap'
-    # Convert the PCAPNG file to PCAP
-    convert_pcapng_to_pcap(file_path, "traces/count.pcap")
-    number_of_packets = count_packets_pcap("traces/count.pcap")
-    # Delete the count file
-    os.remove("traces/count.pcap")
+    # # Convert the PCAPNG file to PCAP
+    # convert_pcapng_to_pcap(file_path, "traces/count.pcap")
+    # number_of_packets = count_packets_pcap("traces/count.pcap")
+    # # Delete the count file
+    # os.remove("traces/count.pcap")
 
 
     # Read the PCAP file
+    print("Progress: Loading packets...")
     cap = pyshark.FileCapture(file_path)
-
+    cap.load_packets()
+    number_of_packets = len(cap)
     # Find devices
-    devices = findDevices(cap)
+    devices = findDevices(cap, number_of_packets)
 
     # Get the device IP
     device_ipv4 = "192.168.1.141"
