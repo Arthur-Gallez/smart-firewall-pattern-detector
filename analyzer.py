@@ -15,6 +15,7 @@ from protocols.mdns import mdns
 from protocols.dhcp import dhcp
 from protocols.igmp import igmp
 from protocols.ssdp import ssdp
+from protocols.coap import coap
 from progressBar import printProgressBar
 from node import Node
 
@@ -92,8 +93,6 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
         device_mac (str): MAC address of the device.
     """
     
-    #print("Progress: Loading packets...")
-    #cap.load_packets()
     counter = 0
     # create list of patterns
     patterns = []
@@ -116,6 +115,11 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
     # mdns broadcast
     dns_map.add_ipv4("mdns", "224.0.0.251")
     dns_map.add_ipv6("mdns", "ff02::fb")
+    # CoAP multicast
+    dns_map.add_ipv6("coap", "ff02::158") # Based on the firewall (src/translator/protocols/icmpv6.py)
+    dns_map.add_ipv6("coap", "ff02::fd") # Based on https://www.rfc-editor.org/rfc/rfc7390.html
+    dns_map.add_ipv6("coap", "ff05::fd") # Based on https://www.rfc-editor.org/rfc/rfc7390.html
+    dns_map.add_ipv4("coap", "224.0.1.187") # Based on https://www.rfc-editor.org/rfc/rfc7390.html
     
     # number_of_packets = len(cap)
     i_packet = 0
@@ -142,7 +146,6 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                 ip = dns_data.aaaa
                 # Add the domain and the IP to the map
                 dns_map.add_ipv6(domain, ip)
-        
         
         try:
             try:
@@ -374,8 +377,8 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                             my_node_1.childrens.append(my_node_2)
                     except AttributeError as e:
                         # DHCP packet with error (ex: DHCP in a icmp destination unreachable packet)
-                        #print(packet)
-                        print(e)
+                        # print(packet)
+                        # print(e)
                         pass
                 elif "ICMP" in str(packet.layers):
                     # ICMP packet
@@ -400,6 +403,32 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                             my_node_1.childrens.append(my_node_2)
                     except AttributeError as e:
                         print(e)
+                elif "COAP" in str(packet.layers):
+                    try:
+                        code = int(packet.coap.code.show)
+                        coap_method = "GET" if code == 1 else "POST" if code == 2 else "PUT" if code == 3 else "DELETE" if code == 4 else "UNKNOWN"
+                        type_int = int(packet.coap.type.show)
+                        coap_type = "CON" if type_int == 0 else "NON" if type_int == 1 else "ACK" if type_int == 2 else "RST" if type_int == 3 else "UNKNOWN"
+                        coap_uri_path = packet.coap.opt_uri_path_recon.show
+                        coap_uri_query = packet.coap.opt_uri_query.show
+                        coap_uri = coap_uri_path if not coap_uri_query else coap_uri_path + "?" + coap_uri_query
+                        coap_packet = coap(coap_type, coap_method, coap_uri)
+                        my_node_2 = None
+                        for node in my_node_1.childrens:
+                            if node.protocol == "coap":
+                                if node.element == coap_packet:
+                                    # We found a node with the same COAP data
+                                    my_node_2 = node
+                                    break
+                        if my_node_2 is None:
+                            # No third layer found
+                            my_node_2 = Node(coap_packet, "coap", layer=2, childrens=[])
+                            my_node_1.childrens.append(my_node_2)
+                    
+                    except AttributeError as e:
+                        # An error occured while parsing the COAP packet
+                        # print(packet)
+                        pass
                 else:
                     # packet have no third layer handled before
                     # print(packet.layers)
@@ -432,7 +461,7 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                     patterns.append(my_node_0)
             except AttributeError as e:
                 # Packet is not an ARP Packet
-                print(packet)
+                # print(packet)
                 pass
     
     # ----------------------------------------
@@ -602,10 +631,25 @@ if __name__ == "__main__":
     number_of_packets = len(cap)
     # Find devices
     devices = findDevices(cap, number_of_packets)
-
-    # Get the device IP
-    device_ipv4 = "192.168.1.141"
-    device_ipv6 = "fe80::217:88ff:fe74:c2dc"
-    device_mac = "00:17:88:74:c2:dc"
+    if len(devices) == 0:
+        print("No local devices found in .pcap file.")
+        exit()
+    print(f"{len(devices)} devices found in .pcap file:")
+    for i in range(len(devices)):
+        print("Device " + str(i+1) + ": " + str(devices[i]))
+    
+    while True:
+        try:
+            device_number = int(input("Enter the number of the device to analyze: "))
+            if device_number < 1 or device_number > len(devices):
+                raise ValueError
+            break
+        except ValueError:
+            print("Invalid input. Please enter a number between 1 and " + str(len(devices)))
+    device = devices[device_number-1]
+    # Device data from philips hue pcap if bypassing the device selection is needed
+    # device_ipv4 = "192.168.1.141"
+    # device_ipv6 = "fe80::217:88ff:fe74:c2dc"
+    # device_mac = "00:17:88:74:c2:dc"
     # Analyze packets
-    patterns = analyzer(cap, device_ipv4, device_ipv6, device_mac, number_of_packets)
+    patterns = analyzer(cap, device.ipv4, device.ipv6, device.mac, number_of_packets)

@@ -83,9 +83,5 @@ def findDevices(cap: pyshark.FileCapture, number_of_packets: int):
         else:
             new_device = Device(mac=mac, ipv4=ipv4, ipv6=ipv6, name=name)
             devices.append(new_device)
-
     print()
-    for device in devices:
-        print(device)
-
-
+    return devices
