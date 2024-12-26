@@ -20,7 +20,7 @@ from patternClass import Pattern
 from progressBar import printProgressBar
 from node import Node
 from patternToYAML import patternToYAML
-
+from bidirectionalSimplifier import merge_bidirectional_patterns
 GATEWAY_IP = "192.168.1.1"
 GATEWAY_MAC = "c0:56:27:73:46:0b"
 GATEWAY_IPV6 = "fddd:ed18:f05b::1"
@@ -609,7 +609,9 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                         layer_2 = grandchild.element
                         p = Pattern(layer_0=layer_0, layer_1=layer_1, layer_2=layer_2)
                         pattern_list.append(p)
-         
+
+    # 合并双向流量
+    pattern_list = merge_bidirectional_patterns(pattern_list)
     YamlResult = patternToYAML(pattern_list)
     print(YamlResult)          
     return YamlResult
