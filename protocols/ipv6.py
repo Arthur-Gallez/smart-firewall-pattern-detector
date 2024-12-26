@@ -11,3 +11,9 @@ class ipv6:
     
     def __str__(self):
         return "IPv6: " + self.src + " -> " + self.dst
+    
+    def __dict__(self):
+        return {
+            "src": self.src,
+            "dst": self.dst
+        }

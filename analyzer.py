@@ -19,6 +19,7 @@ from protocols.coap import coap
 from patternClass import Pattern
 from progressBar import printProgressBar
 from node import Node
+from patternToYAML import patternToYAML
 
 GATEWAY_IP = "192.168.1.1"
 GATEWAY_MAC = "c0:56:27:73:46:0b"
@@ -137,24 +138,24 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
             # Check if the packet is a DNS response
             if hasattr(dns_data, 'a'):
                 # Get the domain and the IP
-                domain = dns_data.qry_name
-                ip = dns_data.a
+                domain = dns_data.qry_name.show
+                ip = dns_data.a.show
                 # Add the domain and the IP to the map
                 dns_map.add_ipv4(domain, ip)
             if hasattr(dns_data, 'aaaa'):
                 # Get the domain and the IP
-                domain = dns_data.qry_name
-                ip = dns_data.aaaa
+                domain = dns_data.qry_name.show
+                ip = dns_data.aaaa.show
                 # Add the domain and the IP to the map
                 dns_map.add_ipv6(domain, ip)
         
         try:
             try:
-                ip_src = packet.ip.src
-                ip_dst = packet.ip.dst
+                ip_src = packet.ip.src.show
+                ip_dst = packet.ip.dst.show
             except AttributeError as e:
-                ip_src = packet.ipv6.src
-                ip_dst = packet.ipv6.dst
+                ip_src = packet.ipv6.src.show
+                ip_dst = packet.ipv6.dst.show
             phone_condition = False
             if INCLUDE_PHONE:
                 phone_condition = ip_src == PHONE_IPV6 or ip_dst == PHONE_IPV6 or ip_src == PHONE or ip_dst == PHONE
@@ -169,7 +170,6 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                     ip = ipv4(ip_src, ip_dst)
                 else:
                     ip = ipv6(ip_src, ip_dst)
-                
                 my_node_0 = None
                 for node in patterns:
                     if node.protocol == "ipv4":
@@ -579,9 +579,9 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
     # Sorting the patterns by protocol
     patterns.sort(key=lambda x: x.protocol)                
     
-    for node in patterns:
-        node.print_tree()
-        print("---")
+    # for node in patterns:
+    #     node.print_tree()
+    #     print("---")
         
     # print total number of nodes
     c = len(patterns)
@@ -609,9 +609,11 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                         layer_2 = grandchild.element
                         p = Pattern(layer_0=layer_0, layer_1=layer_1, layer_2=layer_2)
                         pattern_list.append(p)
-                        
-    
-    return patterns
+         
+    YamlResult = patternToYAML(pattern_list)
+    print(YamlResult)          
+    return YamlResult
+
 
 def convert_pcapng_to_pcap(pcapng_file, pcap_file):
     try:

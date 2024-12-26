@@ -14,3 +14,9 @@ class http:
     
     def __hash__(self):
         return hash(self.method + self.uri)
+    
+    def __dict__(self):
+        return {
+            "method": self.method,
+            "uri": self.uri
+        }

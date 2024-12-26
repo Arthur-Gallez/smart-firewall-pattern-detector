@@ -16,3 +16,9 @@ class dns:
         self.domain_name.extend(other.domain_name)
         self.qtype = list(set(self.qtype + other.qtype))
         return True
+    
+    def __dict__(self):
+        return {
+            "qtype": self.qtype,
+            "domain-name": self.domain_name
+        }

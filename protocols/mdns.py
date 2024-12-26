@@ -13,3 +13,13 @@ class mdns:
     
     def __eq__(self, value):
         return self.response == value.response and self.qtype == value.qtype and self.domain_name == value.domain_name
+    
+    def __dict__(self):
+        if self.response:
+            return {
+                "response": self.response
+            }
+        return {
+            "qtype": self.qtype,
+            "domain-name": self.domain_name
+        }

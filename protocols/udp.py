@@ -11,3 +11,9 @@ class udp:
     
     def __str__(self):
         return "UDP: " + str(self.src_port) + " -> " + str(self.dst_port)
+    
+    def __dict__(self):
+        return {
+            "src-port": self.src_port,
+            "dst-port": self.dst_port
+        }

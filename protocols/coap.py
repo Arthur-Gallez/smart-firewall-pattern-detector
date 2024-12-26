@@ -13,3 +13,10 @@ class coap:
     
     def __eq__(self, value):
         return self.type == value.type and self.method == value.method and self.uri == value.uri
+    
+    def __dict__(self):
+        return {
+            "type": self.type,
+            "method": self.method,
+            "uri": self.uri
+        }

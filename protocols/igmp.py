@@ -27,3 +27,9 @@ class igmp:
                 self.igmp_group = key
                 break
     
+    def __dict__(self):
+        return {
+            "version": self.igmp_version,
+            "type": self.igmp_type,
+            "group": self.igmp_group
+        }

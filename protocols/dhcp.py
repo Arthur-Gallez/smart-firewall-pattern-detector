@@ -11,3 +11,9 @@ class dhcp:
     
     def __eq__(self, value):
         return self.dhcp_type == value.dhcp_type and self.client_mac == value.client_mac
+    
+    def __dict__(self):
+        return {
+            "type": self.dhcp_type,
+            "client_mac": self.client_mac
+        }

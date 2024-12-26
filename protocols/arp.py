@@ -73,4 +73,11 @@ class arp:
             # Adress has already been chaged to text
             pass
 
-        
+    def __dict__(self):
+        return {
+            "type": self.type,
+            "sha": self.sha,
+            "spa": self.spa,
+            "tha": self.tha,
+            "tpa": self.tpa
+        }

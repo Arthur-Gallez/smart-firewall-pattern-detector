@@ -11,3 +11,9 @@ class ipv4:
     
     def __str__(self):
         return "IPv4: " + self.src + " -> " + self.dst
+    
+    def __dict__(self):
+        return {
+            "src": self.src,
+            "dst": self.dst
+        }
