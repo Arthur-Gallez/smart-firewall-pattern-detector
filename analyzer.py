@@ -16,6 +16,7 @@ from protocols.dhcp import dhcp
 from protocols.igmp import igmp
 from protocols.ssdp import ssdp
 from protocols.coap import coap
+from patternClass import Pattern
 from progressBar import printProgressBar
 from node import Node
 
@@ -589,6 +590,26 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
         for child in node.childrens:
             c += len(child.childrens)
     print("Total number of nodes after simplification: " + str(c))
+    
+    # Patterns object creation
+    pattern_list = []
+    for node in patterns:
+        layer_0 = node.element
+        if node.is_leaf():
+            p = Pattern(layer_0=layer_0, layer_1=None, layer_2=None)
+            pattern_list.append(p)
+        else:
+            for child in node.childrens:
+                layer_1 = child.element
+                if child.is_leaf():
+                    p = Pattern(layer_0=layer_0, layer_1=layer_1, layer_2=None)
+                    pattern_list.append(p)
+                else:
+                    for grandchild in child.childrens:
+                        layer_2 = grandchild.element
+                        p = Pattern(layer_0=layer_0, layer_1=layer_1, layer_2=layer_2)
+                        pattern_list.append(p)
+                        
     
     return patterns
 

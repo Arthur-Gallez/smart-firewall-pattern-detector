@@ -21,3 +21,6 @@ class Node:
             
     def __eq__(self, value):
         return self.element == value.element and self.layer == value.layer and self.protocol == value.protocol and self.childrens == value.childrens
+    
+    def is_leaf(self):
+        return len(self.childrens) == 0
