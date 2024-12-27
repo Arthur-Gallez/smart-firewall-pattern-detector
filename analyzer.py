@@ -257,10 +257,18 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                 if "HTTP" in str(packet.layers):
                     try:
                         # Get the method and the request URI
-                        method = packet.http.request_method.show
+                        try:
+                            method = packet.http.request_method.show
+                            is_response = False
+                        except AttributeError as e:
+                            method = ""
+                            try:
+                                is_response = True if packet.http.response_code.show != None else False
+                            except AttributeError as e:
+                                is_response = False
                         uri = packet.http.request_uri.show
                         # To simplify queries/answers, we will not fill in the "response" field
-                        http_packet = http(method, uri)
+                        http_packet = http(method, uri, is_response)
                         my_node_2 = None
                         for node in my_node_1.childrens:
                             if node.protocol == "http":
