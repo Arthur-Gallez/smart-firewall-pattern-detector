@@ -84,7 +84,7 @@ def merge_nodes_on_port(children, port_attr, merge_attr):
         node.childrens = remove_duplicates(node.childrens)
 
 
-def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_mac:str, number_of_packets:int):
+def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_mac:str, number_of_packets:int, device_name:str):
     """
     Analyzes packets from a capture file and generates a pattern tree.
 
@@ -617,43 +617,15 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                         layer_2 = grandchild.element
                         p = Pattern(layer_0=layer_0, layer_1=layer_1, layer_2=layer_2)
                         pattern_list.append(p)
-         
-    YamlResult = patternToYAML(pattern_list)
+
+    name = device_name.replace(" ", "-")
+    YamlResult = patternToYAML(pattern_list, name=name, mac=device_mac, ipv4=device_ipv4, ipv6=device_ipv6)
     print(YamlResult)          
     return YamlResult
 
 
-def convert_pcapng_to_pcap(pcapng_file, pcap_file):
-    try:
-        # Construct the tshark command
-        command = [
-            "tshark",
-            "-F", "pcap",          # Specify output format as PCAP
-            "-r", pcapng_file,     # Read from the PCAPNG file
-            "-w", pcap_file        # Write to the PCAP file
-        ]
-        # Run the command
-        subprocess.run(command, check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"Error during conversion: {e}")
-    except FileNotFoundError:
-        print("Error: tshark not found. Make sure it is installed and in your PATH.")
-
-def count_packets_pcap(file_path):
-    with open(file_path, 'rb') as f:
-        reader = dpkt.pcap.Reader(f)
-        packet_count = sum(1 for _ in reader)
-    return packet_count
-
-
 if __name__ == "__main__":
     file_path = 'traces/philips-hue.pcap'
-    # # Convert the PCAPNG file to PCAP
-    # convert_pcapng_to_pcap(file_path, "traces/count.pcap")
-    # number_of_packets = count_packets_pcap("traces/count.pcap")
-    # # Delete the count file
-    # os.remove("traces/count.pcap")
-
 
     # Read the PCAP file
     print("Progress: Loading packets...")
@@ -683,4 +655,4 @@ if __name__ == "__main__":
     # device_ipv6 = "fe80::217:88ff:fe74:c2dc"
     # device_mac = "00:17:88:74:c2:dc"
     # Analyze packets
-    patterns = analyzer(cap, device.ipv4, device.ipv6, device.mac, number_of_packets)
+    patterns = analyzer(cap, device.ipv4, device.ipv6, device.mac, number_of_packets, device.name)

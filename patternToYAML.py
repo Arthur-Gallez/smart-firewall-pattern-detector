@@ -1,7 +1,7 @@
 from yaml import dump
 import random
 
-def patternToYAML(patterns):
+def patternToYAML(patterns, name, mac, ipv4, ipv6):
     pattern_dict = {}
     for pattern in patterns:
         # pattern_dict[pattern.name] = { # To use when pattern.name are available
@@ -17,5 +17,14 @@ def patternToYAML(patterns):
         if pattern.layer_2:
             pattern_dict[random_name]['protocols'][pattern.layer_2.__class__.__name__] = dict(pattern.layer_2.__dict__())
     
-    d = dump(pattern_dict)
+    final_dict = {
+        'device-info': {
+            'name': name,
+            'mac': mac,
+            'ipv4': ipv4,
+            'ipv6': ipv6
+        },
+        'patterns': pattern_dict
+        }
+    d = dump(final_dict)
     return d
