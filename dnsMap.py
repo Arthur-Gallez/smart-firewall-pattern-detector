@@ -4,17 +4,22 @@ class DNSMap:
     def __init__(self):
         self.map = {}
         
-    def add_ipv4(self, domain, ip):
+    def add_ipv4(self, domain, ip, device_name=None):
         if domain not in self.map:
-            self.map[domain] = {"ipv4": [], "ipv6": []}
+            self.map[domain] = {"ipv4": [], "ipv6": [], "device_name": device_name}
         if ip not in self.map[domain]["ipv4"]:
             self.map[domain]["ipv4"].append(ip)
         
-    def add_ipv6(self, domain, ip):
+    def add_ipv6(self, domain, ip, device_name=None):
         if domain not in self.map:
-            self.map[domain] = {"ipv4": [], "ipv6": []}
+            self.map[domain] = {"ipv4": [], "ipv6": [], "device_name": device_name}
         if ip not in self.map[domain]["ipv6"]:
             self.map[domain]["ipv6"].append(ip)
+
+    def get_device_name(self, domain):
+        if domain in self.map:
+            return self.map[domain]["device_name"]
+        return domain
         
     def get_ipv4(self, domain):
         if domain in self.map:
