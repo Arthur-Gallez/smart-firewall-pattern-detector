@@ -13,7 +13,12 @@ class tcp:
         return "TCP: " + str(self.src_port) + " -> " + str(self.dst_port)
     
     def __dict__(self):
-        return {
-            "src-port": self.src_port,
-            "dst-port": self.dst_port
-        }
+        if self.src_port is None:
+            return {"dst-port": self.dst_port}
+        elif self.dst_port is None:
+            return {"src-port": self.src_port}
+        else:
+            return {
+                "src-port": self.src_port,
+                "dst-port": self.dst_port
+            }

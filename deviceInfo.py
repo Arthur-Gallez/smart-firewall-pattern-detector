@@ -40,7 +40,7 @@ def get_device_name_by_address(address:str):
     for device_name, device_info in device_name_map.items():
         if address in device_info.values():
             return device_name
-    return address
+    return None
 
 if __name__ == "__main__":
     print(get_device_name_by_address("3c:cd:5d:a2:a9:d7"))  

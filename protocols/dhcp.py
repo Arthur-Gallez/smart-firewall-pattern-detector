@@ -15,5 +15,5 @@ class dhcp:
     def __dict__(self):
         return {
             "type": self.dhcp_type,
-            "client_mac": self.client_mac
+            "client-mac": self.client_mac
         }

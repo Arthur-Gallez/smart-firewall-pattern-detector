@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+
+    <title>YAML Code Block</title>
+    <!-- CSS CREATED USIGN GENERATIVE AI AND PRISM -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+            padding: 0;
+            background-color: #f9f9f9;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        pre {
+            width: 100%;
+            max-width: 90%;
+            margin: 20px auto;
+            padding: 15px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            overflow: auto;
+            font-size: 1em;
+            line-height: 1.5;
+        }
+        code {
+            font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+            color: #333;
+            white-space: pre-wrap; /* Allow long lines to wrap */
+            word-wrap: break-word; /* Ensure long lines break properly */
+        }
+        /* Highlighting styles (optional) */
+        code[class*=language-] {
+            color: #000;
+            background: none;
+        }
+        pre[class*=language-] {
+            background: #f5f2f0;
+        }
+        .token.comment, .token.prolog, .token.doctype, .token.cdata {
+            color: #708090;
+        }
+        .token.punctuation {
+            color: #999;
+        }
+        .token.property, .token.tag, .token.boolean, .token.number, .token.constant, .token.symbol {
+            color: #905;
+        }
+        .token.selector, .token.attr-name, .token.string, .token.char, .token.builtin, .token.inserted {
+            color: #690;
+        }
+        .token.operator, .token.entity, .token.url, .language-css .token.string, .style .token.string {
+            color: #9a6e3a;
+        }
+        .token.atrule, .token.attr-value, .token.keyword {
+            color: #07a;
+        }
+        .token.function, .token.class-name {
+            color: #dd4a68;
+        }
+        .token.regex, .token.important, .token.variable {
+            color: #e90;
+        }
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            pre {
+                font-size: 0.9em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Resulting Patterns for {{ device }}</h1>
+    <pre><code class="language-yaml">{{ patterns }}</code></pre>
+</body>
+</html>

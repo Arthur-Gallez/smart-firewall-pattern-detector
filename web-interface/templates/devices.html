@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device Selection</title>
+    <!-- CSS CREATED USIGN GENERATIVE AI -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 0;
+            background-color: #f9f9f9;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        form {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .device {
+            margin-bottom: 15px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #fefefe;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .device:hover {
+            border-color: #3498db;
+        }
+        .device input {
+            margin-right: 10px;
+            transform: scale(1.2);
+            cursor: pointer;
+        }
+        .device label {
+            display: block;
+            font-size: 1.1em;
+            color: #555;
+        }
+        .device span {
+            display: block;
+            font-size: 0.9em;
+            color: #666;
+        }
+        .submit-button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background-color: #3498db;
+            color: #fff;
+            font-size: 1.2em;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-align: center;
+        }
+        .submit-button:hover {
+            background-color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <h1>Select a Device</h1>
+    <form action="/getPatterns" method="POST">
+        {% for device in devices %}
+        <div class="device">
+            <input type="radio" id="device-{{ loop.index }}" name="device" 
+                   value="{{ device.name }}|{{ device.mac }}|{{ device.ipv4 }}|{{ device.ipv6 }}" required>
+            <label for="device-{{ loop.index }}">
+                <strong>{{ device.name }}</strong>
+                <span>MAC Address: {{ device.mac }}</span>
+                <span>IPv4 Address: {{ device.ipv4 }}</span>
+                <span>IPv6 Address: {{ device.ipv6 }}</span>
+            </label>
+        </div>
+        {% endfor %}
+        <button type="submit" class="submit-button">Analyze Selected Device</button>
+    </form>
+</body>
+</html>

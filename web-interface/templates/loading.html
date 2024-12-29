@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loading...</title>
+    <!-- CSS CREATED USIGN GENERATIVE AI -->
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+        }
+        .loader {
+            border: 8px solid #f3f3f3;
+            border-top: 8px solid #3498db;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .message {
+            margin-top: 20px;
+            font-size: 1.2em;
+            color: #333;
+        }
+    </style>
+    <script>
+        function checkIfFinished() {
+            fetch('/is_finished')
+                .then(response => response.text())
+                .then(data => {
+                    if (data === "True") {
+                        window.location.href = "/devices";
+                    } else {
+                        setTimeout(checkIfFinished, 1000);
+                    }
+                })
+                .catch(error => {
+                    console.error("Error while checking status:", error);
+                    setTimeout(checkIfFinished, 1000);
+                });
+        }
+        document.addEventListener("DOMContentLoaded", checkIfFinished);
+    </script>
+</head>
+<body>
+    <div>
+        <div class="loader"></div>
+        <div class="message">Please wait while we process your file...</div>
+        <div class="message">This may take more than a minute for bigger traces</div>
+    </div>
+</body>
+</html>

@@ -195,4 +195,3 @@ def patternToYAML(patterns, dns_map):
     
     d = dump(yaml_dict)
     return d
-
