@@ -104,8 +104,10 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
     patterns = []
     dns_map = DNSMap()
     # Adding special cases to the DNS map
-    dns_map.add_ipv4("self", device_ipv4, get_device_name_by_address(device_ipv4))
-    dns_map.add_ipv6("self", device_ipv6, get_device_name_by_address(device_ipv6))
+    device_name_ipv4 = get_device_name_by_address(device_ipv4) if get_device_name_by_address(device_ipv4) is not None else device_name.replace(" ", "-")
+    device_name_ipv6 = get_device_name_by_address(device_ipv6) if get_device_name_by_address(device_ipv6) is not None else device_name.replace(" ", "-")
+    dns_map.add_ipv4("self", device_ipv4, device_name_ipv4)
+    dns_map.add_ipv6("self", device_ipv6, device_name_ipv6)
     # Gateway
     dns_map.add_ipv4("gateway", GATEWAY_IP, "gateway")
     dns_map.add_ipv6("gateway", GATEWAY_IPV6, "gateway")
