@@ -1,14 +1,14 @@
 from patternClass import Pattern
 
 def merge_bidirectional_patterns(pattern_list):
-    """合并表示双向流量的模式"""
+    """Merge patterns representing bidirectional traffic"""
     merged_patterns = []
     used_patterns = set()
     used_patterns_obj = []
     
     def _check_reverse_pattern(pattern1, pattern2):
-        """检查pattern2是否是pattern1的反向流量"""
-        # 跳过不需要双向检查的协议
+        """Check if pattern2 is the reverse traffic of pattern1"""
+        # Skip protocols that don't need bidirectional check
         if pattern1.layer_2 and pattern1.layer_2.__class__.__name__ in [
             'coap', 'dhcp', 'mdns', 'ssdp']:
             return False
@@ -19,13 +19,13 @@ def merge_bidirectional_patterns(pattern_list):
         if pattern1.layer_0 and pattern1.layer_0.__class__.__name__ == 'arp':
             return False
             
-        # 检查协议层是否匹配
+        # Check if protocol layers match
         if ((pattern1.layer_0 is None) != (pattern2.layer_0 is None) or
             (pattern1.layer_1 is None) != (pattern2.layer_1 is None) or
             (pattern1.layer_2 is None) != (pattern2.layer_2 is None)):
             return False
             
-        # 检查每层协议的具体属性
+        # Check specific attributes for each protocol layer
         if pattern1.layer_0:
             if pattern1.layer_0.__class__ != pattern2.layer_0.__class__:
                 return False
@@ -48,7 +48,22 @@ def merge_bidirectional_patterns(pattern_list):
                 
         return True
 
-    # 查找并合并双向模式
+    def _get_pattern_with_earlier_highest_layer(pattern1, pattern2):
+        """
+        Compare the highest layer packet_number of two Patterns and return the one with smaller number
+        """
+        # First determine the highest layer
+        if pattern1.layer_2 is not None and pattern2.layer_2 is not None:
+            # If both have third layer, compare packet_number_2
+            return pattern1 if pattern1.packet_number_2 <= pattern2.packet_number_2 else pattern2
+        elif pattern1.layer_1 is not None and pattern2.layer_1 is not None:
+            # If both have second layer, compare packet_number_1
+            return pattern1 if pattern1.packet_number_1 <= pattern2.packet_number_1 else pattern2
+        else:
+            # Only first layer, compare packet_number_0
+            return pattern1 if pattern1.packet_number_0 <= pattern2.packet_number_0 else pattern2
+
+    # Find and merge bidirectional patterns
     for i, pattern1 in enumerate(pattern_list):
         if i in used_patterns:
             continue
@@ -59,12 +74,17 @@ def merge_bidirectional_patterns(pattern_list):
                 continue
                 
             if _check_reverse_pattern(pattern1, pattern2):
-                # 创建合并后的模式
+                # Select pattern with earlier highest layer packet_number
+                base_pattern = _get_pattern_with_earlier_highest_layer(pattern1, pattern2)
+                # Create merged pattern
                 merged = Pattern(
-                    layer_0=pattern1.layer_0,
-                    layer_1=pattern1.layer_1,
-                    layer_2=pattern1.layer_2,
-                    is_bidirectional=True  # 设置双向标志
+                    layer_0=base_pattern.layer_0,
+                    layer_1=base_pattern.layer_1,
+                    layer_2=base_pattern.layer_2,
+                    packet_number_0=base_pattern.packet_number_0,
+                    packet_number_1=base_pattern.packet_number_1,
+                    packet_number_2=base_pattern.packet_number_2,
+                    is_bidirectional=True  # Set bidirectional flag
                 )
                 merged_patterns.append(merged)
                 used_patterns.add(i)
@@ -75,7 +95,7 @@ def merge_bidirectional_patterns(pattern_list):
                 break
                 
         if not found_reverse and i not in used_patterns:
-            # 没有找到反向模式，添加原始模式
+            # No reverse pattern found, add original pattern
             merged_patterns.append(pattern1)
             
     return merged_patterns

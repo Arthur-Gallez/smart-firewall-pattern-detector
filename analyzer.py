@@ -19,8 +19,10 @@ from protocols.coap import coap
 from patternClass import Pattern
 from progressBar import printProgressBar
 from node import Node
-from patternToYAML import patternToYAML
+from patternToYAML import patternToYAML, remove_duplicates
 from bidirectionalSimplifier import merge_bidirectional_patterns
+from deviceInfo import get_device_name_by_address
+
 GATEWAY_IP = "192.168.1.1"
 GATEWAY_MAC = "c0:56:27:73:46:0b"
 GATEWAY_IPV6 = "fddd:ed18:f05b::1"
@@ -34,23 +36,23 @@ IGMPV3 = "224.0.0.22"
 SSDP = "239.255.255.250"
 INCLUDE_PHONE = False
 
+#Added other device's ipv4 and ipv6
+AMAZON_ECHO = "192.168.1.150"
+AMAZON_ECHO_IPV6 = "fddd:ed18:f05b:0:adef:a05d:fcbe:afc9"
 
+DLINK_CAM = "192.168.1.115"
 
-def remove_duplicates(obj_list):
-    """
-    Removes duplicates from a list of objects.
+PHILIPS_HUE = "192.168.1.141"
+PHILIPS_HUE_IPV6 = "fe80::217:88ff:fe74:c2dc"
 
-    Args:
-        obj_list: List of objects to process.
+TPLINK_PLUG = "192.168.1.135"
 
-    Returns:
-        List: List of objects without duplicates.
-    """
-    unique_list = []
-    for obj in obj_list:
-        if obj not in unique_list:
-            unique_list.append(obj)
-    return unique_list
+XIAOMI_CAM = "192.168.1.161"
+
+TUYA_MOTION = "192.168.1.102"
+
+SMARTTHINGS_HUB = "192.168.1.223"
+SMARTTHINGS_HUB_IPV6 = "fddd:ed18:f05b:0:d8a3:adc0:f68f:e5cf"
 
 
 def merge_nodes_on_port(children, port_attr, merge_attr):
@@ -71,6 +73,8 @@ def merge_nodes_on_port(children, port_attr, merge_attr):
                 and children[i].protocol == children[j].protocol
                 and getattr(children[i].element, port_attr) == getattr(children[j].element, port_attr)
             ):
+                # keep the smaller packet_number of the two children
+                children[i].packet_number = min(children[i].packet_number, children[j].packet_number)
                 # Merge child nodes
                 children[i].childrens.extend(children[j].childrens)
                 if getattr(children[i].element, merge_attr) != getattr(children[j].element, merge_attr):
@@ -100,28 +104,56 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
     patterns = []
     dns_map = DNSMap()
     # Adding special cases to the DNS map
-    dns_map.add_ipv4("self", device_ipv4)
-    dns_map.add_ipv6("self", device_ipv6)
+    dns_map.add_ipv4("self", device_ipv4, get_device_name_by_address(device_ipv4))
+    dns_map.add_ipv6("self", device_ipv6, get_device_name_by_address(device_ipv6))
     # Gateway
-    dns_map.add_ipv4("gateway", GATEWAY_IP)
-    dns_map.add_ipv6("gateway", GATEWAY_IPV6)
-    dns_map.add_ipv6("gateway-local", GATEWAY_LOCAL_IPV6)
+    dns_map.add_ipv4("gateway", GATEWAY_IP, "gateway")
+    dns_map.add_ipv6("gateway", GATEWAY_IPV6, "gateway")
+    dns_map.add_ipv6("gateway-local", GATEWAY_LOCAL_IPV6, "gateway-local")
     # Phone
-    dns_map.add_ipv6("phone", PHONE_IPV6)
-    dns_map.add_ipv4("phone", PHONE)
+    dns_map.add_ipv6("phone", PHONE_IPV6, get_device_name_by_address(PHONE_IPV6))
+    dns_map.add_ipv4("phone", PHONE, get_device_name_by_address(PHONE))
     # Broadcast and other special cases
-    dns_map.add_ipv4("broadcast", BROADCAST)
-    dns_map.add_ipv6("broadcast", BROADCAST_IPV6)
-    dns_map.add_ipv4("igmpv3", IGMPV3)
-    dns_map.add_ipv4("ssdp", SSDP)
+    dns_map.add_ipv4("broadcast", BROADCAST, "broadcast")
+    dns_map.add_ipv6("broadcast", BROADCAST_IPV6, "broadcast")
+    dns_map.add_ipv4("igmpv3", IGMPV3, "igmpv3")
+    dns_map.add_ipv4("ssdp", SSDP, "ssdp")
     # mdns broadcast
-    dns_map.add_ipv4("mdns", "224.0.0.251")
-    dns_map.add_ipv6("mdns", "ff02::fb")
+    dns_map.add_ipv4("mdns", "224.0.0.251", "mdns")
+    dns_map.add_ipv6("mdns", "ff02::fb", "mdns")    
     # CoAP multicast
-    dns_map.add_ipv6("coap", "ff02::158") # Based on the firewall (src/translator/protocols/icmpv6.py)
-    dns_map.add_ipv6("coap", "ff02::fd") # Based on https://www.rfc-editor.org/rfc/rfc7390.html
-    dns_map.add_ipv6("coap", "ff05::fd") # Based on https://www.rfc-editor.org/rfc/rfc7390.html
-    dns_map.add_ipv4("coap", "224.0.1.187") # Based on https://www.rfc-editor.org/rfc/rfc7390.html
+    dns_map.add_ipv6("coap", "ff02::158", "coap") # Based on the firewall (src/translator/protocols/icmpv6.py)
+    dns_map.add_ipv6("coap", "ff02::fd", "coap") # Based on https://www.rfc-editor.org/rfc/rfc7390.html
+    dns_map.add_ipv6("coap", "ff05::fd", "coap") # Based on https://www.rfc-editor.org/rfc/rfc7390.html
+    dns_map.add_ipv4("coap", "224.0.1.187", "coap") # Based on https://www.rfc-editor.org/rfc/rfc7390.html
+
+        # Add other IoT devices to DNS map
+    if AMAZON_ECHO != device_ipv4:
+        dns_map.add_ipv4("amazon-echo", AMAZON_ECHO, "amazon-echo")
+    if AMAZON_ECHO_IPV6 != device_ipv6:
+        dns_map.add_ipv6("amazon-echo", AMAZON_ECHO_IPV6, "amazon-echo")
+        
+    if DLINK_CAM != device_ipv4:
+        dns_map.add_ipv4("dlink-cam", DLINK_CAM, "dlink-cam")
+        
+    if PHILIPS_HUE != device_ipv4:
+        dns_map.add_ipv4("philips-hue", PHILIPS_HUE, "philips-hue")
+    if PHILIPS_HUE_IPV6 != device_ipv6:
+        dns_map.add_ipv6("philips-hue", PHILIPS_HUE_IPV6, "philips-hue")
+        
+    if TPLINK_PLUG != device_ipv4:
+        dns_map.add_ipv4("tplink-plug", TPLINK_PLUG, "tplink-plug")
+        
+    if XIAOMI_CAM != device_ipv4:
+        dns_map.add_ipv4("xiaomi-cam", XIAOMI_CAM, "xiaomi-cam")
+        
+    if TUYA_MOTION != device_ipv4:
+        dns_map.add_ipv4("tuya-motion", TUYA_MOTION, "tuya-motion")
+        
+    if SMARTTHINGS_HUB != device_ipv4:
+        dns_map.add_ipv4("smartthings-hub", SMARTTHINGS_HUB, "smartthings-hub")
+    if SMARTTHINGS_HUB_IPV6 != device_ipv6:
+        dns_map.add_ipv6("smartthings-hub", SMARTTHINGS_HUB_IPV6, "smartthings-hub" )
     
     # number_of_packets = len(cap)
     i_packet = 0
@@ -184,7 +216,8 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                             break
                 if my_node_0 is None:
                     # No firt layer found
-                    my_node_0 = Node(ip, "ipv4" if isinstance(ip, ipv4) else "ipv6", childrens=[], layer=0)
+                    my_node_0 = Node(ip, "ipv4" if isinstance(ip, ipv4) else "ipv6", 
+                                    childrens=[], layer=0, packet_number=i_packet)
                     patterns.append(my_node_0)
                     
                 # ----------------------------------------
@@ -203,7 +236,8 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                                 break
                     if my_node_1 is None:
                         # No second layer found
-                        my_node_1 = Node(tcp_info, "tcp", layer=1, childrens=[])
+                        my_node_1 = Node(tcp_info, "tcp", layer=1, 
+                                        childrens=[], packet_number=i_packet)
                         my_node_0.childrens.append(my_node_1)
                 except AttributeError as e:
                     # Not a TCP packet
@@ -221,7 +255,8 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                                     break
                         if my_node_1 is None:
                             # No second layer found
-                            my_node_1 = Node(udp_info, "udp", layer=1, childrens=[])
+                            my_node_1 = Node(udp_info, "udp", layer=1, 
+                                            childrens=[], packet_number=i_packet)
                             my_node_0.childrens.append(my_node_1)
                     except AttributeError as e:
                         # Not a UDP packet
@@ -243,7 +278,8 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                                     break
                         if my_node_1 is None:
                             # No third layer found
-                            my_node_1 = Node(igmp_packet, "igmp", layer=2, childrens=[])
+                            my_node_1 = Node(igmp_packet, "igmp", layer=2, 
+                                            childrens=[], packet_number=i_packet)
                             my_node_0.childrens.append(my_node_1)
                     except AttributeError as e:
                         # Not an IGMP packet
@@ -257,10 +293,19 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                 if "HTTP" in str(packet.layers):
                     try:
                         # Get the method and the request URI
-                        method = packet.http.request_method.show
-                        uri = packet.http.request_uri.show
+                        try:
+                            method = packet.http.request_method.show
+                            is_response = False
+                            uri = packet.http.request_uri.show #Move this line here
+                        except AttributeError as e:
+                            method = ""
+                            try:
+                                is_response = True if packet.http.response_code.show != None else False
+                                uri = None #add this line to fix the response packet
+                            except AttributeError as e:
+                                is_response = False
                         # To simplify queries/answers, we will not fill in the "response" field
-                        http_packet = http(method, uri)
+                        http_packet = http(method, uri, is_response)
                         my_node_2 = None
                         for node in my_node_1.childrens:
                             if node.protocol == "http":
@@ -270,7 +315,8 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                                     break
                         if my_node_2 is None:
                             # No third layer found
-                            my_node_2 = Node(http_packet, "http", layer=2, childrens=[])
+                            my_node_2 = Node(http_packet, "http", layer=2, 
+                                            childrens=[], packet_number=i_packet)
                             my_node_1.childrens.append(my_node_2)
                     except AttributeError as e:
                         # HTTP packet is a response
@@ -305,7 +351,8 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                                     break
                         if my_node_2 is None:
                             # No third layer found
-                            my_node_2 = Node(dns_packet, "dns", layer=2, childrens=[])
+                            my_node_2 = Node(dns_packet, "dns", layer=2, 
+                                            childrens=[], packet_number=i_packet)
                             my_node_1.childrens.append(my_node_2)
                     except AttributeError as e:
                         # Error in the DNS packet process. It could be a mDNS packet
@@ -345,7 +392,8 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                                                 break
                                     if my_node_2 is None:
                                         # No third layer found
-                                        my_node_2 = Node(mdns_packet, "mdns", layer=2, childrens=[])
+                                        my_node_2 = Node(mdns_packet, "mdns", layer=2, 
+                                                        childrens=[], packet_number=i_packet)
                                         my_node_1.childrens.append(my_node_2)
                                     
                             except AttributeError as e:
@@ -374,7 +422,8 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                                     break
                         if my_node_2 is None:
                             # No third layer found
-                            my_node_2 = Node(dhcp_packet, "dhcp", layer=2, childrens=[])
+                            my_node_2 = Node(dhcp_packet, "dhcp", layer=2, 
+                                            childrens=[], packet_number=i_packet)
                             my_node_1.childrens.append(my_node_2)
                     except AttributeError as e:
                         # DHCP packet with error (ex: DHCP in a icmp destination unreachable packet)
@@ -400,7 +449,8 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                                     break
                         if my_node_2 is None:
                             # No third layer found
-                            my_node_2 = Node(ssdp_packet, "ssdp", layer=2, childrens=[])
+                            my_node_2 = Node(ssdp_packet, "ssdp", layer=2, 
+                                            childrens=[], packet_number=i_packet)
                             my_node_1.childrens.append(my_node_2)
                     except AttributeError as e:
                         print(e)
@@ -423,7 +473,8 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                                     break
                         if my_node_2 is None:
                             # No third layer found
-                            my_node_2 = Node(coap_packet, "coap", layer=2, childrens=[])
+                            my_node_2 = Node(coap_packet, "coap", layer=2, 
+                                            childrens=[], packet_number=i_packet)
                             my_node_1.childrens.append(my_node_2)
                     
                     except AttributeError as e:
@@ -458,7 +509,7 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                             break
                 if my_node_0 is None:
                     # No firt layer found
-                    my_node_0 = Node(arp_packet, "arp", childrens=[], layer=0)
+                    my_node_0 = Node(arp_packet, "arp", childrens=[], layer=0, packet_number=i_packet)
                     patterns.append(my_node_0)
             except AttributeError as e:
                 # Packet is not an ARP Packet
@@ -493,6 +544,8 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
         j = i + 1
         while j < len(patterns):
             if patterns[i].protocol == patterns[j].protocol and patterns[i].element == patterns[j].element:
+                # keep the smaller packet_number
+                patterns[i].packet_number = min(patterns[i].packet_number, patterns[j].packet_number)
                 # Merge nodes
                 patterns[i].childrens.extend(patterns[j].childrens)
                 # Remove the duplicate node
@@ -508,6 +561,8 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                     patterns[i].childrens[k].protocol == patterns[i].childrens[l].protocol
                     and patterns[i].childrens[k].element == patterns[i].childrens[l].element
                 ):
+                    # keep the smaller packet_number of the two children
+                    patterns[i].childrens[k].packet_number = min(patterns[i].childrens[k].packet_number, patterns[i].childrens[l].packet_number)
                     # Merge child nodes
                     patterns[i].childrens[k].childrens.extend(patterns[i].childrens[l].childrens)
                     patterns[i].childrens.pop(l)
@@ -548,8 +603,9 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                                 for new_dns_node in new_children:
                                     if new_dns_node.protocol == "dns":
                                         if new_dns_node.element.merge(dns_node.element):
+                                            # keep the smaller packet_number of the two nodes
+                                            new_dns_node.packet_number = min(new_dns_node.packet_number, dns_node.packet_number)
                                             new_dns_node.element.domain_name = remove_duplicates(new_dns_node.element.domain_name)
-                                            # new_dns_node.element.qtype = remove_duplicates(new_dns_node.element.qtype)
                                             merged = True
                                             break
                                 if not merged:
@@ -562,6 +618,8 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                                 for new_dns_node in new_children:
                                     if new_dns_node.protocol == "mdns":
                                         if new_dns_node.element.qtype == dns_node.element.qtype:
+                                            # keep the smaller packet_number of the two nodes
+                                            new_dns_node.packet_number = min(new_dns_node.packet_number, dns_node.packet_number)
                                             new_dns_node.element.domain_name.extend(dns_node.element.domain_name)
                                             new_dns_node.element.domain_name = remove_duplicates(new_dns_node.element.domain_name)
                                             merged = True
@@ -579,9 +637,9 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
     # Sorting the patterns by protocol
     patterns.sort(key=lambda x: x.protocol)                
     
-    # for node in patterns:
-    #     node.print_tree()
-    #     print("---")
+    for node in patterns:
+        node.print_tree()
+        print("---")
         
     # print total number of nodes
     c = len(patterns)
@@ -595,24 +653,34 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
     pattern_list = []
     for node in patterns:
         layer_0 = node.element
+        packet_number_0 = node.packet_number
         if node.is_leaf():
-            p = Pattern(layer_0=layer_0, layer_1=None, layer_2=None)
+            p = Pattern(layer_0=layer_0, layer_1=None, layer_2=None,
+                       packet_number_0=packet_number_0, packet_number_1=0, packet_number_2=0)
             pattern_list.append(p)
         else:
             for child in node.childrens:
                 layer_1 = child.element
+                packet_number_1 = child.packet_number
                 if child.is_leaf():
-                    p = Pattern(layer_0=layer_0, layer_1=layer_1, layer_2=None)
+                    p = Pattern(layer_0=layer_0, layer_1=layer_1, layer_2=None,
+                              packet_number_0=packet_number_0, 
+                              packet_number_1=packet_number_1,
+                              packet_number_2=0)
                     pattern_list.append(p)
                 else:
                     for grandchild in child.childrens:
                         layer_2 = grandchild.element
-                        p = Pattern(layer_0=layer_0, layer_1=layer_1, layer_2=layer_2)
+                        packet_number_2 = grandchild.packet_number
+                        p = Pattern(layer_0=layer_0, layer_1=layer_1, layer_2=layer_2,
+                                  packet_number_0=packet_number_0,
+                                  packet_number_1=packet_number_1,
+                                  packet_number_2=packet_number_2)
                         pattern_list.append(p)
-
-    # 合并双向流量
+    
+    # merge bidirectional patterns
     pattern_list = merge_bidirectional_patterns(pattern_list)
-    YamlResult = patternToYAML(pattern_list)
+    YamlResult = patternToYAML(pattern_list, dns_map)
     print(YamlResult)          
     return YamlResult
 
