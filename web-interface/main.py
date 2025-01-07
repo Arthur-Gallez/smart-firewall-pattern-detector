@@ -3,7 +3,7 @@ import sys, os, asyncio
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import analyzer
 from devicesFinder import findDevices
-import pyshark
+from scapy.all import rdpcap
 from threading import Thread
 
 app = Flask(__name__)
@@ -32,9 +32,7 @@ def analyze():
         # (https://stackoverflow.com/questions/46727787/runtimeerror-there-is-no-current-event-loop-in-thread-in-async-apscheduler)
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        
-        cap = pyshark.FileCapture("trace.pcap")
-        cap.load_packets()
+        cap = rdpcap("trace.pcap")
         number_of_packets = len(cap)
         # Find devices
         devices = findDevices(cap, number_of_packets)
