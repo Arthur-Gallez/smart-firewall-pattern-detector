@@ -1,4 +1,5 @@
-import pyshark
+from scapy.all import rdpcap, Ether, IP, IPv6
+import manuf
 from progressBar import printProgressBar
 
 class Device:
@@ -37,32 +38,32 @@ def isInList(devices, data: str):
             return d
     return None
 
-def findDevices(cap: pyshark.FileCapture, number_of_packets: int):
+def findDevices(packets, number_of_packets: int):
     filtered_ipv4 = ["0.0.0.0", "255.255.255.255"]
-    filtered_ipv6 = ["::"] # TODO fill in with broadcast adresses
+    filtered_ipv6 = ["::"]  # TODO fill in with broadcast addresses
     devices = []
 
     print("Finding devices...")
     i_packet = 0
-    for packet in cap:
-        printProgressBar(i_packet, number_of_packets, prefix = 'Progress:', suffix = 'Complete', length = 50)
+    for packet in packets:
+        printProgressBar(i_packet, number_of_packets, prefix='Progress:', suffix='Complete', length=50)
         i_packet += 1
         mac = ipv4 = ipv6 = None
+        name = None
 
         # Extract Ethernet (MAC) layer
-        if hasattr(packet, 'eth'):
-            mac = packet.eth.src
-            name = packet.eth.src_oui_resolved
+        if Ether in packet:
+            mac = packet[Ether].src
 
         # Extract IPv4 layer
-        if hasattr(packet, 'ip'):
-            ipv4 = packet.ip.src
+        if IP in packet:
+            ipv4 = packet[IP].src
             if ipv4 in filtered_ipv4:
                 continue
 
         # Extract IPv6 layer
-        if hasattr(packet, 'ipv6'):
-            ipv6 = packet.ipv6.src
+        if IPv6 in packet:
+            ipv6 = packet[IPv6].src
             if ipv6 in filtered_ipv6:
                 continue
 
@@ -81,6 +82,7 @@ def findDevices(cap: pyshark.FileCapture, number_of_packets: int):
         if existing_device:
             existing_device.update(mac=mac, ipv4=ipv4, ipv6=ipv6, name=name)
         else:
+            name = manuf.MacParser().get_manuf_long(mac)
             new_device = Device(mac=mac, ipv4=ipv4, ipv6=ipv6, name=name)
             devices.append(new_device)
     print()

@@ -1,7 +1,8 @@
-import pyshark
-import subprocess
-import dpkt
-import os
+from scapy.all import *
+from scapy.layers.http import *
+from scapy.contrib.coap import *
+from scapy.contrib.igmp import *
+from scapy.contrib.igmpv3 import *
 from devicesFinder import Device, findDevices
 from dnsMap import DNSMap
 from protocols.ipv4 import ipv4
@@ -32,7 +33,7 @@ BROADCAST = "255.255.255.255"
 BROADCAST_IPV6 = "ff:ff:ff:ff:ff:ff"
 PHONE_IPV6 = "3c:cd:5d:a2:a9:d7"
 PHONE = "192.168.1.222"
-IGMPV3 = "224.0.0.22"
+IGMPV3_IP = "224.0.0.22"
 SSDP = "239.255.255.250"
 INCLUDE_PHONE = False
 
@@ -88,7 +89,7 @@ def merge_nodes_on_port(children, port_attr, merge_attr):
         node.childrens = remove_duplicates(node.childrens)
 
 
-def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_mac:str, number_of_packets:int, device_name:str):
+def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_of_packets:int, device_name:str):
     """
     Analyzes packets from a capture file and generates a pattern tree.
 
@@ -118,7 +119,7 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
     # Broadcast and other special cases
     dns_map.add_ipv4("broadcast", BROADCAST, "broadcast")
     dns_map.add_ipv6("broadcast", BROADCAST_IPV6, "broadcast")
-    dns_map.add_ipv4("igmpv3", IGMPV3, "igmpv3")
+    dns_map.add_ipv4("igmpv3", IGMPV3_IP, "igmpv3")
     dns_map.add_ipv4("ssdp", SSDP, "ssdp")
     # mdns broadcast
     dns_map.add_ipv4("mdns", "224.0.0.251", "mdns")
@@ -161,35 +162,47 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
     i_packet = 0
     # MAIN LOOP
     print("Progress: Analyzing traces...")
-    for packet in cap:
+    #for packet in cap:
+    for packet in packets:
         i_packet += 1
         printProgressBar(i_packet, number_of_packets, prefix = 'Progress:', suffix = 'Complete', length = 50)
         
         # parse the dns packets for the future dns map
         # Get the DNS packets
-        if hasattr(packet, 'dns'):
-            dns_data = packet.dns
-            # Check if the packet is a DNS response
-            if hasattr(dns_data, 'a'):
-                # Get the domain and the IP
-                domain = dns_data.qry_name.show
-                ip = dns_data.a.show
-                # Add the domain and the IP to the map
-                dns_map.add_ipv4(domain, ip)
-            if hasattr(dns_data, 'aaaa'):
-                # Get the domain and the IP
-                domain = dns_data.qry_name.show
-                ip = dns_data.aaaa.show
-                # Add the domain and the IP to the map
-                dns_map.add_ipv6(domain, ip)
-        
+        if packet.haslayer(DNS):
+            # Exclude mDNS packets (multicast DNS)
+            if (packet.haslayer(IP) and packet[IP].dst == "224.0.0.251") or \
+            (packet.haslayer(IPv6) and packet[IPv6].dst == "ff02::fb") or \
+            (packet.haslayer(UDP) and packet[UDP].dport == 5353):
+                # Skip mDNS packets
+                pass
+            else:
+                dns_layer = packet[DNS]
+                # Check if the packet is a DNS response
+                if dns_layer.qr == 1:  # 1 means it's a response
+                    # Check if the packet has an A record (IPv4)
+                    for i in range(dns_layer.ancount):
+                        try:
+                            answer = dns_layer.an[i]
+                            if answer.type == 1:  # Type 1 is A (IPv4)
+                                domain = dns_layer.qd.qname.decode().strip(".")
+                                ip = answer.rdata  # Get the IPv4 address
+                                dns_map.add_ipv4(domain, ip)
+                            # Check if the packet has an AAAA record (IPv6)
+                            if answer.type == 28:
+                                domain = dns_layer.qd.qname.decode().strip(".")
+                                ip = answer.rdata  # Get the IPv6 address
+                                dns_map.add_ipv6(domain, ip)
+                        except AttributeError:
+                            pass
+
         try:
             try:
-                ip_src = packet.ip.src.show
-                ip_dst = packet.ip.dst.show
-            except AttributeError as e:
-                ip_src = packet.ipv6.src.show
-                ip_dst = packet.ipv6.dst.show
+                ip_src = packet[IP].src
+                ip_dst = packet[IP].dst
+            except IndexError as e:
+                ip_src = packet[IPv6].src
+                ip_dst = packet[IPv6].dst
             phone_condition = False
             if INCLUDE_PHONE:
                 phone_condition = ip_src == PHONE_IPV6 or ip_dst == PHONE_IPV6 or ip_src == PHONE or ip_dst == PHONE
@@ -221,14 +234,13 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                     my_node_0 = Node(ip, "ipv4" if isinstance(ip, ipv4) else "ipv6", 
                                     childrens=[], layer=0, packet_number=i_packet)
                     patterns.append(my_node_0)
-                    
                 # ----------------------------------------
                 # Second layer (tcp, udp, etc)
                 # ----------------------------------------
                 my_node_1 = None
                 try:
-                    src_port = int(packet.tcp.srcport.show)
-                    dst_port = int(packet.tcp.dstport.show)
+                    src_port = packet[TCP].sport
+                    dst_port = packet[TCP].dport
                     tcp_info = tcp(src_port, dst_port)
                     for node in my_node_0.childrens:
                         if node.protocol == "tcp":
@@ -241,13 +253,13 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                         my_node_1 = Node(tcp_info, "tcp", layer=1, 
                                         childrens=[], packet_number=i_packet)
                         my_node_0.childrens.append(my_node_1)
-                except AttributeError as e:
+                except IndexError as e:
                     # Not a TCP packet
                     pass
                 if my_node_1 is None:
                     try:
-                        src_port = int(packet.udp.srcport.show)
-                        dst_port = int(packet.udp.dstport.show)
+                        src_port = packet[UDP].sport
+                        dst_port = packet[UDP].dport
                         udp_info = udp(src_port, dst_port)
                         for node in my_node_0.childrens:
                             if node.protocol == "udp":
@@ -260,51 +272,58 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                             my_node_1 = Node(udp_info, "udp", layer=1, 
                                             childrens=[], packet_number=i_packet)
                             my_node_0.childrens.append(my_node_1)
-                    except AttributeError as e:
+                    except IndexError as e:
                         # Not a UDP packet
                         pass
                 if my_node_1 is None:
                     # IGMP packet
-                    try:
-                        igmp_type = "membership report" if packet.igmp.type.show in ["0x22", "0x16", "0x12"] else "membership query" if packet.igmp.type.show == "0x11" else "leave group"
-                        igmp_version = int(packet.igmp.version)
-                        igmp_group = packet.igmp.maddr
-                        igmp_packet = igmp(igmp_version, igmp_type, igmp_group)
-                        igmp_packet.simplify()
-                        my_node_1 = None
-                        for node in my_node_0.childrens:
-                            if node.protocol == "igmp":
-                                if node.element == igmp_packet:
-                                    # We found a node with the same IGMP data
-                                    my_node_1 = node
-                                    break
-                        if my_node_1 is None:
-                            # No third layer found
-                            my_node_1 = Node(igmp_packet, "igmp", layer=2, 
-                                            childrens=[], packet_number=i_packet)
-                            my_node_0.childrens.append(my_node_1)
-                    except AttributeError as e:
-                        # Not an IGMP packet
-                        #print(packet)
-                        pass
+                    if packet.haslayer(IGMPv3):
+                        try:
+                            igmp_type = packet[IGMPv3].type
+                            igmp_type = "membership report" if packet[IGMPv3].type in [34, 22, 18] else "membership query" if packet[IGMPv3].type == 17 else "leave group"
+                            igmp_version = 3
+                            igmp_group = None
+                            if igmp_type == "membership report" and packet.haslayer(IGMPv3mr):
+                                igmp_group = packet[IGMPv3mr].records[0].maddr
+                            igmp_packet = igmp(igmp_version, igmp_type, igmp_group)
+                            igmp_packet.simplify()
+                            my_node_1 = None
+                            for node in my_node_0.childrens:
+                                if node.protocol == "igmp":
+                                    if node.element == igmp_packet:
+                                        # We found a node with the same IGMP data
+                                        my_node_1 = node
+                                        break
+                            if my_node_1 is None:
+                                # No third layer found
+                                my_node_1 = Node(igmp_packet, "igmp", layer=2, 
+                                                childrens=[], packet_number=i_packet)
+                                my_node_0.childrens.append(my_node_1)
+                        except AttributeError as e:
+                            # Not an IGMP packet
+                            #print(packet)
+                            pass
                 
                 # ----------------------------------------
                 # Third layer (http, dns, etc)
                 # ----------------------------------------
-                # Check http case
-                if "HTTP" in str(packet.layers):
+                # Check HTTP case
+                if packet.haslayer(HTTP):
                     try:
                         # Get the method and the request URI
                         try:
-                            method = packet.http.request_method.show
+                            method = packet[HTTP].Method.decode()
                             is_response = False
-                            uri = packet.http.request_uri.show #Move this line here
-                        except AttributeError as e:
+                            uri = packet[HTTP].Path.decode()  # Move this line here
+                        except AttributeError:
                             method = ""
                             try:
-                                is_response = True if packet.http.response_code.show != None else False
-                                uri = None #add this line to fix the response packet
-                            except AttributeError as e:
+                                is_response = True if packet.haslayer(HTTPResponse) else False
+                                if not is_response:
+                                    # HTTP layer contains no data and is not a response
+                                    continue
+                                uri = None  # Add this line to fix the response packet
+                            except AttributeError:
                                 is_response = False
                         # To simplify queries/answers, we will not fill in the "response" field
                         http_packet = http(method, uri, is_response)
@@ -317,16 +336,16 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                                     break
                         if my_node_2 is None:
                             # No third layer found
-                            my_node_2 = Node(http_packet, "http", layer=2, 
+                            my_node_2 = Node(http_packet, "http", layer=2,
                                             childrens=[], packet_number=i_packet)
                             my_node_1.childrens.append(my_node_2)
-                    except AttributeError as e:
+                    except AttributeError:
                         # HTTP packet is a response
                         pass
-                elif "DNS" in str(packet.layers):
+                elif packet.haslayer(DNS) and not packet[DNS].qd.qname.decode().endswith(".local."):
                     try:
                         type_name = None
-                        dns_type = int(packet.dns.qry_type.show)
+                        dns_type = packet[DNS].qd.qtype
                         if dns_type == 1:
                             type_name = "A"
                         elif dns_type == 28:
@@ -337,7 +356,7 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                             type_name = "NS"
                         elif dns_type == 12:
                             type_name = "PTR"
-                        request_name = packet.dns.qry_name.show
+                        request_name = packet[DNS].qd.qname.decode().strip(".")
                         dns_packet = dns(type_name, request_name)
                         
                         my_node_2 = None
@@ -353,65 +372,80 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                                     break
                         if my_node_2 is None:
                             # No third layer found
-                            my_node_2 = Node(dns_packet, "dns", layer=2, 
+                            my_node_2 = Node(dns_packet, "dns", layer=2,
                                             childrens=[], packet_number=i_packet)
                             my_node_1.childrens.append(my_node_2)
-                    except AttributeError as e:
-                        # Error in the DNS packet process. It could be a mDNS packet
-                        if "MDNS" in str(packet.layers):
-                            try:
-                                is_response = True if packet.mdns.get_field_value("dns.flags.response") == "True" else False
-                                mdns_packets = []
-                                if is_response:
-                                    mdns_packet = mdns(True, "", [])
-                                    mdns_packets.append(mdns_packet)
-                                else:
-                                    qtypes = []
-                                    qnames = []
-                                    for querry in packet.mdns.dns_qry_name.fields:
-                                        qnames.append(querry.show)
-                                    for querry_type in packet.mdns.dns_qry_type.fields:
-                                        type_name = querry_type.showname_value.split(" ")[0]
-                                        qtypes.append(type_name)
-                                    mdns_dict = {}
-                                    for i in range(len(qtypes)):
-                                        if qtypes[i] in mdns_dict:
-                                            mdns_dict[qtypes[i]].append(qnames[i])
-                                        else:
-                                            mdns_dict[qtypes[i]] = [qnames[i]]
-                                    # Create a node for each querry type
-                                    for key, values in mdns_dict.items():
-                                        mdns_packet = mdns(False, key, values)
-                                        mdns_packets.append(mdns_packet)
-                                
-                                for mdns_packet in mdns_packets:
-                                    my_node_2 = None
-                                    for node in my_node_1.childrens:
-                                        if node.protocol == "mdns":
-                                            if node.element == mdns_packet:
-                                                # We found a node with the same mDNS data
-                                                my_node_2 = node
-                                                break
-                                    if my_node_2 is None:
-                                        # No third layer found
-                                        my_node_2 = Node(mdns_packet, "mdns", layer=2, 
-                                                        childrens=[], packet_number=i_packet)
-                                        my_node_1.childrens.append(my_node_2)
-                                    
-                            except AttributeError as e:
-                                # Error in the mDNS packet process
-                                #print(packet)
-                                pass
+                    except AttributeError:
+                        # Error in the DNS packet process
+                        pass
+
+                if packet.haslayer(DNS) and packet[DNS].qd.qname.decode().endswith(".local."):
+                    try:
+                        is_response = packet[DNS].qr == 1
+                        mdns_packets = []
+                        if is_response:
+                            mdns_packet = mdns(True, "", [])
+                            mdns_packets.append(mdns_packet)
                         else:
-                            # Dns packet with error (ex: DNS in a icmp destination unreachable packet)
-                            #print(packet)
-                            pass
-                elif "DHCP" in str(packet.layers):
+                            qtypes = []
+                            qnames = []
+                            for i in range(packet[DNS].qdcount):
+                                qnames.append(packet[DNS].qd[i].qname.decode().strip("."))
+                                t = packet[DNS].qd[i].qtype
+                                if t == 1:
+                                    qtypes.append("A")
+                                elif t == 28:
+                                    qtypes.append("AAAA")
+                                elif t == 5:
+                                    qtypes.append("CNAME")
+                                elif t == 2:
+                                    qtypes.append("NS")
+                                elif t == 12:
+                                    qtypes.append("PTR")
+                                elif t == 255:
+                                    qtypes.append("ANY")
+                                else:
+                                    qtypes.append(str(packet[DNS].qd[i].qtype))
+                            mdns_dict = {}
+                            for i in range(len(qtypes)):
+                                if qtypes[i] in mdns_dict:
+                                    mdns_dict[qtypes[i]].append(qnames[i])
+                                else:
+                                    mdns_dict[qtypes[i]] = [qnames[i]]
+                            # Create a node for each query type
+                            for key, values in mdns_dict.items():
+                                mdns_packet = mdns(False, key, values)
+                                mdns_packets.append(mdns_packet)
+                        
+                        for mdns_packet in mdns_packets:
+                            my_node_2 = None
+                            for node in my_node_1.childrens:
+                                if node.protocol == "mdns":
+                                    if node.element == mdns_packet:
+                                        # We found a node with the same mDNS data
+                                        my_node_2 = node
+                                        break
+                            if my_node_2 is None:
+                                # No third layer found
+                                my_node_2 = Node(mdns_packet, "mdns", layer=2,
+                                                childrens=[], packet_number=i_packet)
+                                my_node_1.childrens.append(my_node_2)
+                    except AttributeError as e:
+                        # Error in the mDNS packet process
+                        pass
+
+                elif packet.haslayer(DHCP) and packet.haslayer(BOOTP):
                     # DHCP packet
                     try:
-                        dhcp_type_value = int(packet.dhcp.option_type.raw_value[-2:])
+                        for option in packet[DHCP].options:
+                            if option[0] == "message-type":
+                                dhcp_type_value = option[1]
                         dhcp_type_name = "discover" if dhcp_type_value == 1 else "offer" if dhcp_type_value == 2 else "request" if dhcp_type_value == 3 else "ack"
-                        client_mac = packet.dhcp.hw_mac_addr.show
+                        client_mac = packet[BOOTP].chaddr.hex()
+                        # remove all ending zeros
+                        client_mac = client_mac.rstrip("00")
+                        client_mac = ":".join(client_mac[i:i+2] for i in range(0, len(client_mac), 2))
+
                         if client_mac == device_mac:
                             client_mac = "self"
                         dhcp_packet = dhcp(dhcp_type_name, client_mac)
@@ -436,11 +470,11 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                     # ICMP packet
                     # Not supported yet
                     pass
-                elif "SSDP" in str(packet.layers):
+                elif packet.haslayer(UDP) and packet.haslayer(Raw) and (packet[Raw].load.startswith(b"M-SEARCH") or packet[Raw].load.startswith(b"NOTIFY")):
                     # SSDP packet
                     try:
                         is_response = True if my_node_0.element.dst == device_ipv4 or my_node_0.element.dst == device_ipv6 else False
-                        method = "M-SEARCH" if "M-SEARCH" in packet.ssdp._all_fields[""] else "NOTIFY" if "NOTIFY" in packet.ssdp._all_fields[""] else "UNKNOWN"
+                        method = "M-SEARCH" if packet[Raw].load.startswith(b"M-SEARCH") else "NOTIFY"
                         ssdp_packet = ssdp(method, is_response)
                         my_node_2 = None
                         for node in my_node_1.childrens:
@@ -456,15 +490,20 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                             my_node_1.childrens.append(my_node_2)
                     except AttributeError as e:
                         print(e)
-                elif "COAP" in str(packet.layers):
+                elif packet.haslayer(CoAP):
                     try:
-                        code = int(packet.coap.code.show)
+                        code = packet[CoAP].code
                         coap_method = "GET" if code == 1 else "POST" if code == 2 else "PUT" if code == 3 else "DELETE" if code == 4 else "UNKNOWN"
-                        type_int = int(packet.coap.type.show)
+                        type_int = packet[CoAP].type
                         coap_type = "CON" if type_int == 0 else "NON" if type_int == 1 else "ACK" if type_int == 2 else "RST" if type_int == 3 else "UNKNOWN"
-                        coap_uri_path = packet.coap.opt_uri_path_recon.show
-                        coap_uri_query = packet.coap.opt_uri_query.show
-                        coap_uri = coap_uri_path if not coap_uri_query else coap_uri_path + "?" + coap_uri_query
+                        coap_uri_path = ""
+                        coap_uri_query = ""
+                        for option in packet[CoAP].options:
+                            if option[0] == "Uri-Path":
+                                coap_uri_path += "/" + option[1].decode()
+                            elif option[0] == "Uri-Query":
+                                coap_uri_query += option[1].decode()
+                        coap_uri = coap_uri_path if coap_uri_query == "" else coap_uri_path + "?" + coap_uri_query
                         coap_packet = coap(coap_type, coap_method, coap_uri)
                         my_node_2 = None
                         for node in my_node_1.childrens:
@@ -486,36 +525,43 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
                 else:
                     # packet have no third layer handled before
                     # print(packet.layers)
-                    pass
+
+                    try:
+                        coap_layer = packet[CoAP]
+                        print(f"CoAP Packet: {coap_layer.summary()}")
+                    except IndexError:
+                        # If CoAP layer is not present, continue
+                        continue
+
                 
                 # TODO: Handle igmp, ssdp, dhcp, ntp
                             
-        except AttributeError as e:
+        except IndexError as e:
             # Packet is not an IP Packet
             try:
-                # Parse the ARP packets
-                arp_type_number = int(packet.arp.opcode.show)
-                sha = packet.arp.src_hw_mac.show
-                spa = packet.arp.src_proto_ipv4.show
-                tha = packet.arp.dst_hw_mac.show
-                tpa = packet.arp.dst_proto_ipv4.show
-                arp_type = "request" if arp_type_number == 1 else "reply"
-                arp_packet = arp(arp_type, sha, spa, tha, tpa)
-                arp_packet.simplify(device_ipv4, device_mac)
-                my_node_0 = None
-                for node in patterns:
-                    if node.protocol == "arp":
-                        if node.element == arp_packet:
-                            # We found a node with the same ARP data
-                            my_node_0 = node
-                            break
-                if my_node_0 is None:
-                    # No firt layer found
-                    my_node_0 = Node(arp_packet, "arp", childrens=[], layer=0, packet_number=i_packet)
-                    patterns.append(my_node_0)
-            except AttributeError as e:
+                # Check if the packet is an ARP packet
+                if packet.haslayer(ARP):
+                    arp_type_number = int(packet[ARP].op)  # Operation code (1=request, 2=reply)
+                    sha = packet[ARP].hwsrc  # Source MAC address
+                    spa = packet[ARP].psrc  # Source Protocol (IPv4) address
+                    tha = packet[ARP].hwdst  # Target MAC address
+                    tpa = packet[ARP].pdst  # Target Protocol (IPv4) address
+                    arp_type = "request" if arp_type_number == 1 else "reply"
+                    arp_packet = arp(arp_type, sha, spa, tha, tpa)
+                    arp_packet.simplify(device_ipv4, device_mac)
+                    my_node_0 = None
+                    for node in patterns:
+                        if node.protocol == "arp":
+                            if node.element == arp_packet:
+                                # We found a node with the same ARP data
+                                my_node_0 = node
+                                break
+                    if my_node_0 is None:
+                        # No first layer found
+                        my_node_0 = Node(arp_packet, "arp", childrens=[], layer=0, packet_number=i_packet)
+                        patterns.append(my_node_0)
+            except ValueError as e:
                 # Packet is not an ARP Packet
-                # print(packet)
                 pass
     
     # ----------------------------------------
@@ -639,9 +685,9 @@ def analyzer(cap:pyshark.FileCapture, device_ipv4:str, device_ipv6:str, device_m
     # Sorting the patterns by protocol
     patterns.sort(key=lambda x: x.protocol)                
     
-    for node in patterns:
-        node.print_tree()
-        print("---")
+    # for node in patterns:
+    #     node.print_tree()
+    #     print("---")
         
     # print total number of nodes
     c = len(patterns)
@@ -692,11 +738,14 @@ if __name__ == "__main__":
 
     # Read the PCAP file
     print("Progress: Loading packets...")
-    cap = pyshark.FileCapture(file_path)
-    cap.load_packets()
-    number_of_packets = len(cap)
+    #cap = pyshark.FileCapture(file_path)
+    #cap.load_packets()
+    
+    packets = rdpcap(file_path)
+    number_of_packets = len(packets)
+    #number_of_packets = len(cap) 
     # Find devices
-    devices = findDevices(cap, number_of_packets)
+    devices = findDevices(packets, number_of_packets)
     if len(devices) == 0:
         print("No local devices found in .pcap file.")
         exit()
@@ -718,4 +767,4 @@ if __name__ == "__main__":
     # device_ipv6 = "fe80::217:88ff:fe74:c2dc"
     # device_mac = "00:17:88:74:c2:dc"
     # Analyze packets
-    patterns = analyzer(cap, device.ipv4, device.ipv6, device.mac, number_of_packets, device.name)
+    patterns = analyzer(packets, device.ipv4, device.ipv6, device.mac, number_of_packets, device.name)
