@@ -186,12 +186,12 @@ def patternToYAML(patterns, dns_map):
             'protocols': {},
             'bidirectionnal': pattern.is_bidirectional
         }
-        if pattern.layer_0:
-            yaml_dict[name]['protocols'][pattern.layer_0.__class__.__name__] = dict(pattern.layer_0.__dict__())
-        if pattern.layer_1:
-            yaml_dict[name]['protocols'][pattern.layer_1.__class__.__name__] = dict(pattern.layer_1.__dict__())
         if pattern.layer_2:
             yaml_dict[name]['protocols'][pattern.layer_2.__class__.__name__] = dict(pattern.layer_2.__dict__())
-    
-    d = dump(yaml_dict)
+        if pattern.layer_1:
+            yaml_dict[name]['protocols'][pattern.layer_1.__class__.__name__] = dict(pattern.layer_1.__dict__())
+        if pattern.layer_0:
+            yaml_dict[name]['protocols'][pattern.layer_0.__class__.__name__] = dict(pattern.layer_0.__dict__())
+
+    d = dump(yaml_dict, sort_keys=False)
     return d
