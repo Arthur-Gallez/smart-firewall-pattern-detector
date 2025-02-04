@@ -73,6 +73,7 @@ def merge_nodes_on_port(children, port_attr, merge_attr):
                 children[i].protocol in ["tcp", "udp"]
                 and children[i].protocol == children[j].protocol
                 and getattr(children[i].element, port_attr) == getattr(children[j].element, port_attr)
+                and getattr(children[i].element, merge_attr) not in [1900, 3222] and getattr(children[j].element, merge_attr) not in [1900, 3222]
             ):
                 # keep the smaller packet_number of the two children
                 children[i].packet_number = min(children[i].packet_number, children[j].packet_number)
@@ -193,7 +194,7 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                                 domain = dns_layer.qd.qname.decode().strip(".")
                                 ip = answer.rdata  # Get the IPv6 address
                                 dns_map.add_ipv6(domain, ip)
-                        except AttributeError:
+                        except:
                             pass
 
         try:
