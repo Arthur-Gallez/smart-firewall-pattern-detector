@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Device Selection</title>
-    <!-- CSS CREATED USIGN GENERATIVE AI -->
+    <!-- CSS CREATED USING GENERATIVE AI -->
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -35,15 +35,19 @@
         .device:hover {
             border-color: #3498db;
         }
-        .device input {
+        .device input[type="radio"] {
             margin-right: 10px;
             transform: scale(1.2);
             cursor: pointer;
         }
-        .device label {
+        .device input[type="text"] {
             display: block;
-            font-size: 1.1em;
-            color: #555;
+            width: 100%;
+            padding: 8px;
+            margin-top: 8px;
+            font-size: 1em;
+            border: 1px solid #ccc;
+            border-radius: 4px;
         }
         .device span {
             display: block;
@@ -73,9 +77,9 @@
         {% for device in devices %}
         <div class="device">
             <input type="radio" id="device-{{ loop.index }}" name="device" 
-                   value="{{ device.name }}|{{ device.mac }}|{{ device.ipv4 }}|{{ device.ipv6 }}" required>
+                   value="{{ device.mac }}|{{ device.ipv4 }}|{{ device.ipv6 }}|{{ loop.index }}" required>
             <label for="device-{{ loop.index }}">
-                <strong>{{ device.name }}</strong>
+                <input type="text" name="device_name-{{ loop.index }}" value="{{ device.name }}" required>
                 <span>MAC Address: {{ device.mac }}</span>
                 <span>IPv4 Address: {{ device.ipv4 }}</span>
                 <span>IPv6 Address: {{ device.ipv6 }}</span>

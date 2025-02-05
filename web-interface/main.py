@@ -64,13 +64,12 @@ def devices():
 def get_patterns():
     global cap, number_of_packets
     selected_device = request.form.get("device")
-    if not selected_device:
-        return "No device selected", 400
-    # Parse the selected device's data
-    name, mac, ipv4, ipv6 = selected_device.split("|")
-    patterns = analyzer.analyzer(cap, ipv4, ipv6, mac, number_of_packets, name)
-    returnstr = "results for device: " + name + "<br><pre>" + str(patterns) + "</pre>"
-    return render_template('patterns.html', patterns=patterns, device=name)
+    mac, ipv4, ipv6, i = selected_device.split("|")
+    device_name = request.form.get("device_name-" + str(i))
+    if not selected_device or not device_name:
+        return "Device selection or name missing", 400
+    patterns = analyzer.analyzer(cap, ipv4, ipv6, mac, number_of_packets, device_name)
+    return render_template('patterns.html', patterns=patterns, device=device_name)
 
 @app.route("/is_finished")
 def is_finished():
