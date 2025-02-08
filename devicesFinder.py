@@ -3,6 +3,14 @@ import manuf
 from progressBar import printProgressBar
 
 class Device:
+    """Device class to store device information.
+    
+    Attributes:
+        name (str): Device name.
+        ipv4 (str): Device IPv4 address.
+        ipv6 (str): Device IPv6 address.
+        mac (str): Device MAC address
+    """
     def __init__(self, name: str = "Unknown", ipv4: str = "", ipv6: str = "", mac: str = ""):
         self.name = name
         self.ipv4 = ipv4
@@ -39,6 +47,16 @@ def isInList(devices, data: str):
     return None
 
 def findDevices(packets, number_of_packets: int):
+    """
+    Find devices in the given packets.
+    
+    Args:
+        packets (PacketList): List of packets.
+        number_of_packets (int): Number of packets.
+        
+    Returns:
+        list: List of devices (Device objects).
+    """
     filtered_ipv4 = ["0.0.0.0", "255.255.255.255"]
     filtered_ipv6 = ["::"]  # TODO fill in with broadcast addresses
     devices = []

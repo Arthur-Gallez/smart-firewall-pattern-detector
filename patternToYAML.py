@@ -176,6 +176,15 @@ def patterns_to_dict(patterns, dns_map):
 
 
 def patternToYAML(patterns, dns_map):
+    """Create a YAML string representation of a list of patterns.
+
+    Args:
+        patterns (list): List of Pattern objects.
+        dns_map (DNSMap): DNS mapping.
+
+    Returns:
+        str: YAML string representation of the patterns.
+    """
     # Get dictionary with meaningful names as keys
     pattern_dict = patterns_to_dict(patterns, dns_map)
     

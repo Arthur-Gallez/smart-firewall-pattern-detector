@@ -1,3 +1,13 @@
+"""Analyzer
+
+This module defines the analyzer functions that process packets from a capture file and generate the patterns.
+
+Made by: Gallez Arthur & Zexin Zhang
+"""
+
+# --------------------
+# IMPORTS
+# --------------------
 from scapy.all import *
 from scapy.layers.http import *
 from scapy.contrib.coap import *
@@ -24,6 +34,9 @@ from patternToYAML import patternToYAML, remove_duplicates
 from bidirectionalSimplifier import merge_bidirectional_patterns
 from deviceInfo import get_device_name_by_address
 
+# --------------------
+# CONSTANTS
+# --------------------
 GATEWAY_IP = "192.168.1.1"
 GATEWAY_MAC = "c0:56:27:73:46:0b"
 GATEWAY_IPV6 = "fddd:ed18:f05b::1"
@@ -38,6 +51,7 @@ SSDP = "239.255.255.250"
 INCLUDE_PHONE = False
 
 #Added other device's ipv4 and ipv6
+# TODO: Remove this ?
 AMAZON_ECHO = "192.168.1.150"
 AMAZON_ECHO_IPV6 = "fddd:ed18:f05b:0:adef:a05d:fcbe:afc9"
 
@@ -131,7 +145,8 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
     dns_map.add_ipv6("coap", "ff05::fd", "coap") # Based on https://www.rfc-editor.org/rfc/rfc7390.html
     dns_map.add_ipv4("coap", "224.0.1.187", "coap") # Based on https://www.rfc-editor.org/rfc/rfc7390.html
 
-        # Add other IoT devices to DNS map
+    # Add other IoT devices to DNS map
+    # TODO: Remove this ?
     if AMAZON_ECHO != device_ipv4:
         dns_map.add_ipv4("amazon-echo", AMAZON_ECHO, "amazon-echo")
     if AMAZON_ECHO_IPV6 != device_ipv6:
@@ -159,16 +174,14 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
     if SMARTTHINGS_HUB_IPV6 != device_ipv6:
         dns_map.add_ipv6("smartthings-hub", SMARTTHINGS_HUB_IPV6, "smartthings-hub" )
     
-    # number_of_packets = len(cap)
     i_packet = 0
     # MAIN LOOP
     print("Progress: Analyzing traces...")
-    #for packet in cap:
     for packet in packets:
         i_packet += 1
         printProgressBar(i_packet, number_of_packets, prefix = 'Progress:', suffix = 'Complete', length = 50)
         
-        # parse the dns packets for the future dns map
+        # parse the dns packets for the dns map
         # Get the DNS packets
         if packet.haslayer(DNS):
             # Exclude mDNS packets (multicast DNS)
@@ -196,7 +209,7 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                                 dns_map.add_ipv6(domain, ip)
                         except:
                             pass
-
+        # Start of packet layering
         try:
             try:
                 ip_src = packet[IP].src
@@ -343,6 +356,7 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                     except AttributeError:
                         # HTTP packet is a response
                         pass
+                # Check DNS case
                 elif packet.haslayer(DNS) and not packet[DNS].qd.qname.decode().endswith(".local."):
                     try:
                         type_name = None
@@ -379,7 +393,7 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                     except AttributeError:
                         # Error in the DNS packet process
                         pass
-
+                # Check mDNS case
                 if packet.haslayer(DNS) and packet[DNS].qd.qname.decode().endswith(".local."):
                     try:
                         is_response = packet[DNS].qr == 1
@@ -434,7 +448,7 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                     except AttributeError as e:
                         # Error in the mDNS packet process
                         pass
-
+                # Check DHCP case
                 elif packet.haslayer(DHCP) and packet.haslayer(BOOTP):
                     # DHCP packet
                     try:
@@ -471,6 +485,7 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                     # ICMP packet
                     # Not supported yet
                     pass
+                # Check SSDP case
                 elif packet.haslayer(UDP) and packet.haslayer(Raw) and (packet[Raw].load.startswith(b"M-SEARCH") or packet[Raw].load.startswith(b"NOTIFY")):
                     # SSDP packet
                     try:
@@ -491,6 +506,7 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                             my_node_1.childrens.append(my_node_2)
                     except AttributeError as e:
                         print(e)
+                # Check CoAP case
                 elif packet.haslayer(CoAP):
                     try:
                         code = packet[CoAP].code
@@ -525,17 +541,7 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                         pass
                 else:
                     # packet have no third layer handled before
-                    # print(packet.layers)
-
-                    try:
-                        coap_layer = packet[CoAP]
-                        print(f"CoAP Packet: {coap_layer.summary()}")
-                    except IndexError:
-                        # If CoAP layer is not present, continue
-                        continue
-
-                
-                # TODO: Handle igmp, ssdp, dhcp, ntp
+                    pass
                             
         except IndexError as e:
             # Packet is not an IP Packet
@@ -733,18 +739,14 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
     print(YamlResult)          
     return YamlResult
 
-
 if __name__ == "__main__":
     file_path = 'traces/philips-hue.pcap'
 
     # Read the PCAP file
     print("Progress: Loading packets...")
-    #cap = pyshark.FileCapture(file_path)
-    #cap.load_packets()
     
     packets = rdpcap(file_path)
     number_of_packets = len(packets)
-    #number_of_packets = len(cap) 
     # Find devices
     devices = findDevices(packets, number_of_packets)
     if len(devices) == 0:
