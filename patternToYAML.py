@@ -1,3 +1,7 @@
+"""Conversion module for patterns to YAML format.
+
+Made by: Gallez Arthur & Zhang Zexin
+"""
 from yaml import dump
 
 def remove_duplicates(obj_list):

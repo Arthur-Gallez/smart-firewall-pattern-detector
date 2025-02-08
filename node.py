@@ -1,3 +1,7 @@
+"""Node class.
+
+Made by: Gallez Arthur & Zhang Zexin
+"""
 class Node:
     """Node class used for representing the pattern tree.
 

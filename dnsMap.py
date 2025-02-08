@@ -1,3 +1,7 @@
+"""DNSMap class.
+
+Made by: Gallez Arthur & Zhang Zexin
+"""
 import pyshark
 
 class DNSMap:

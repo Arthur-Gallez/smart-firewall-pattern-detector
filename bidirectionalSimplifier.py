@@ -1,3 +1,7 @@
+"""Bidirectional traffic simplification module
+
+Made by: Gallez Arthur & Zhang Zexin
+"""
 from patternClass import Pattern
 
 def merge_bidirectional_patterns(pattern_list):

@@ -1,3 +1,7 @@
+"""Pattern class.
+
+Made by: Gallez Arthur & Zhang Zexin
+"""
 class Pattern:
     """Pattern class. Store all information of a pattern.
     

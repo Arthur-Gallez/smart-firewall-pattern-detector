@@ -1,3 +1,7 @@
+"""Devices finder module. Contains Device class and functions to find devices in packets.
+
+Made by: Gallez Arthur & Zhang Zexin
+"""
 from scapy.all import rdpcap, Ether, IP, IPv6
 import manuf
 from progressBar import printProgressBar

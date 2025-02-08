@@ -2,7 +2,7 @@
 
 This module defines the analyzer functions that process packets from a capture file and generate the patterns.
 
-Made by: Gallez Arthur & Zexin Zhang
+Made by: Gallez Arthur & Zhang Zexin
 """
 
 # --------------------
