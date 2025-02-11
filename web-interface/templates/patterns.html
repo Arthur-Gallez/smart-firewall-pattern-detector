@@ -81,5 +81,9 @@
 <body>
     <h1>Resulting Patterns for {{ device }}</h1>
     <pre><code class="language-yaml">{{ patterns }}</code></pre>
+    <h1>Suggestions of interactions</h1>
+    {% for suggestion in suggestions %}
+        <pre><code class="language-yaml">{{ suggestion }}</code></pre>
+    {% endfor %}
 </body>
 </html>

@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Device Selection</title>
-    <!-- CSS CREATED USING GENERATIVE AI -->
+    <title>Device and Gateway Selection</title>
+    <!-- CSS CREATED USIGN GENERATIVE AI -->
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -69,11 +69,17 @@
         .submit-button:hover {
             background-color: #2980b9;
         }
+        .gateway-label {
+            font-weight: bold;
+            color: #333;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
-    <h1>Select a Device</h1>
+    <h1>Select a Device and Gateway</h1>
     <form action="/getPatterns" method="POST">
+        <h2>Select Device</h2>
         {% for device in devices %}
         <div class="device">
             <input type="radio" id="device-{{ loop.index }}" name="device" 
@@ -86,7 +92,22 @@
             </label>
         </div>
         {% endfor %}
-        <button type="submit" class="submit-button">Analyze Selected Device</button>
+
+        <h2>Select Gateway</h2>
+        {% for device in devices %}
+        <div class="device">
+            <input type="radio" id="gateway-{{ loop.index }}" name="gateway" 
+                   value="{{ device.mac }}|{{ device.ipv4 }}|{{ device.ipv6 }}|{{ loop.index }}" required>
+            <label for="gateway-{{ loop.index }}">
+                <input type="text" name="gateway_name-{{ loop.index }}" value="{{ device.name }}" readonly>
+                <span>MAC Address: {{ device.mac }}</span>
+                <span>IPv4 Address: {{ device.ipv4 }}</span>
+                <span>IPv6 Address: {{ device.ipv6 }}</span>
+            </label>
+        </div>
+        {% endfor %}
+        
+        <button type="submit" class="submit-button">Analyze Selected Device and Gateway</button>
     </form>
 </body>
 </html>

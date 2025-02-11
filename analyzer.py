@@ -37,10 +37,7 @@ from deviceInfo import get_device_name_by_address
 # --------------------
 # CONSTANTS
 # --------------------
-GATEWAY_IP = "192.168.1.1"
-GATEWAY_MAC = "c0:56:27:73:46:0b"
 GATEWAY_IPV6 = "fddd:ed18:f05b::1"
-GATEWAY_LOCAL_IPV6 = "fe80::c256:27ff:fe73:460b"
 DEFAULT = "00:00:00:00:00:00"
 BROADCAST = "255.255.255.255"
 BROADCAST_IPV6 = "ff:ff:ff:ff:ff:ff"
@@ -104,7 +101,7 @@ def merge_nodes_on_port(children, port_attr, merge_attr):
         node.childrens = remove_duplicates(node.childrens)
 
 
-def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_of_packets:int, device_name:str):
+def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_of_packets:int, device_name:str, ipv4_gateway:str, ipv6_gateway:str, mac_gateway:str):
     """
     Analyzes packets from a capture file and generates a pattern tree.
 
@@ -113,6 +110,11 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
         device_ipv4 (str): IPv4 address of the device.
         device_ipv6 (str): IPv6 address of the device.
         device_mac (str): MAC address of the device.
+        number_of_packets (int): Number of packets in the capture file.
+        device_name (str): Name of the device.
+        ipv4_gateway (str): IPv4 address of the gateway.
+        ipv6_gateway (str): IPv6 address of the gateway.
+        mac_gateway (str): MAC address of the gateway.
     """
     
     counter = 0
@@ -125,9 +127,9 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
     dns_map.add_ipv4("self", device_ipv4, device_name_ipv4)
     dns_map.add_ipv6("self", device_ipv6, device_name_ipv6)
     # Gateway
-    dns_map.add_ipv4("gateway", GATEWAY_IP, "gateway")
+    dns_map.add_ipv4("gateway", ipv4_gateway, "gateway")
     dns_map.add_ipv6("gateway", GATEWAY_IPV6, "gateway")
-    dns_map.add_ipv6("gateway-local", GATEWAY_LOCAL_IPV6, "gateway-local")
+    dns_map.add_ipv6("gateway-local", ipv6_gateway, "gateway-local")
     # Phone
     dns_map.add_ipv6("phone", PHONE_IPV6, get_device_name_by_address(PHONE_IPV6))
     dns_map.add_ipv4("phone", PHONE, get_device_name_by_address(PHONE))
@@ -554,7 +556,7 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                     tha = packet[ARP].hwdst  # Target MAC address
                     tpa = packet[ARP].pdst  # Target Protocol (IPv4) address
                     arp_type = "request" if arp_type_number == 1 else "reply"
-                    arp_packet = arp(arp_type, sha, spa, tha, tpa)
+                    arp_packet = arp(arp_type, sha, spa, tha, tpa, mac_gateway)
                     arp_packet.simplify(device_ipv4, device_mac)
                     my_node_0 = None
                     for node in patterns:
@@ -756,6 +758,7 @@ if __name__ == "__main__":
     for i in range(len(devices)):
         print("Device " + str(i+1) + ": " + str(devices[i]))
     
+    # Ask the user to select the device to analyze
     while True:
         try:
             device_number = int(input("Enter the number of the device to analyze: "))
@@ -765,9 +768,20 @@ if __name__ == "__main__":
         except ValueError:
             print("Invalid input. Please enter a number between 1 and " + str(len(devices)))
     device = devices[device_number-1]
+    # Ask the user for a gateway
+    while True:
+        try:
+            gateway_number = int(input("Enter the number of the gateway device: "))
+            if gateway_number < 1 or gateway_number > len(devices):
+                raise ValueError
+            break
+        except ValueError:
+            print("Invalid input. Please enter a number between 1 and " + str(len(devices)))
+    gateway = devices[gateway_number-1]
+    
     # Device data from philips hue pcap if bypassing the device selection is needed
     # device_ipv4 = "192.168.1.141"
     # device_ipv6 = "fe80::217:88ff:fe74:c2dc"
     # device_mac = "00:17:88:74:c2:dc"
     # Analyze packets
-    patterns = analyzer(packets, device.ipv4, device.ipv6, device.mac, number_of_packets, device.name)
+    patterns = analyzer(packets, device.ipv4, device.ipv6, device.mac, number_of_packets, device.name, gateway.ipv4, gateway.ipv6, gateway.mac)

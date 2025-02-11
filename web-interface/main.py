@@ -5,6 +5,7 @@ import analyzer
 from devicesFinder import findDevices
 from scapy.all import rdpcap
 from threading import Thread
+from interactionDetector import *
 
 app = Flask(__name__)
 
@@ -65,11 +66,14 @@ def get_patterns():
     global cap, number_of_packets
     selected_device = request.form.get("device")
     mac, ipv4, ipv6, i = selected_device.split("|")
+    selected_gateway = request.form.get("gateway")
+    mac_gateway, ipv4_gateway, ipv6_gateway, i_gateway = selected_gateway.split("|")
     device_name = request.form.get("device_name-" + str(i))
     if not selected_device or not device_name:
         return "Device selection or name missing", 400
-    patterns = analyzer.analyzer(cap, ipv4, ipv6, mac, number_of_packets, device_name)
-    return render_template('patterns.html', patterns=patterns, device=device_name)
+    patterns = analyzer.analyzer(cap, ipv4, ipv6, mac, number_of_packets, device_name, ipv4_gateway, ipv6_gateway, mac_gateway)
+    suggestions = find_interactions(patterns)
+    return render_template('patterns.html', patterns=patterns, device=device_name, suggestions=suggestions)
 
 @app.route("/is_finished")
 def is_finished():

@@ -19,12 +19,13 @@ class arp:
     }
     local_range = "192.168.1.0/24"
 
-    def __init__(self, type, sha, spa, tha, tpa):
+    def __init__(self, type, sha, spa, tha, tpa, mac_gateway):
         self.type = type
         self.sha = sha
         self.spa = spa
         self.tha = tha
         self.tpa = tpa
+        self.mac_addrs["gateway"] = mac_gateway
 
     def __str__(self):
         return "ARP: type=%s, sha=%s, spa=%s, tha=%s, tpa=%s" % (self.type, self.sha, self.spa, self.tha, self.tpa)
