@@ -50,7 +50,7 @@ def isInList(devices, data: str):
             return d
     return None
 
-def findDevices(packets, number_of_packets: int):
+def findDevices(packets, number_of_packets: int, print_progress: bool):
     """
     Find devices in the given packets.
     
@@ -68,7 +68,8 @@ def findDevices(packets, number_of_packets: int):
     print("Finding devices...")
     i_packet = 0
     for packet in packets:
-        printProgressBar(i_packet, number_of_packets, prefix='Progress:', suffix='Complete', length=50)
+        if print_progress:
+            printProgressBar(i_packet, number_of_packets, prefix='Progress:', suffix='Complete', length=50)
         i_packet += 1
         mac = ipv4 = ipv6 = None
         name = None

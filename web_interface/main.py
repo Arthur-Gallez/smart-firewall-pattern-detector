@@ -36,7 +36,7 @@ def analyze():
         cap = rdpcap("trace.pcap")
         number_of_packets = len(cap)
         # Find devices
-        devices = findDevices(cap, number_of_packets)
+        devices = findDevices(cap, number_of_packets, False)
         
         # Close the event loop
         loop.close()
@@ -71,7 +71,7 @@ def get_patterns():
     device_name = request.form.get("device_name-" + str(i))
     if not selected_device or not device_name:
         return "Device selection or name missing", 400
-    patterns = analyzer.analyzer(cap, ipv4, ipv6, mac, number_of_packets, device_name, ipv4_gateway, ipv6_gateway, mac_gateway)
+    patterns = analyzer.analyzer(cap, ipv4, ipv6, mac, number_of_packets, device_name, ipv4_gateway, ipv6_gateway, mac_gateway, False, False, False)
     suggestions = find_interactions(patterns)
     return render_template('patterns.html', patterns=patterns, device=device_name, suggestions=suggestions)
 
@@ -81,7 +81,9 @@ def is_finished():
     if thread is None:
         return Response("false")
     return Response(str(not thread.is_alive()))
-    
+
+def run():
+    app.run(debug=False)
 
 if __name__ == "__main__":
-    app.run(debug=False)
+    run()

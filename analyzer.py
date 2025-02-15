@@ -101,7 +101,7 @@ def merge_nodes_on_port(children, port_attr, merge_attr):
         node.childrens = remove_duplicates(node.childrens)
 
 
-def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_of_packets:int, device_name:str, ipv4_gateway:str, ipv6_gateway:str, mac_gateway:str):
+def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_of_packets:int, device_name:str, ipv4_gateway:str, ipv6_gateway:str, mac_gateway:str, print_map:bool, print_tree:bool, print_progress:bool):
     """
     Analyzes packets from a capture file and generates a pattern tree.
 
@@ -181,7 +181,8 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
     print("Progress: Analyzing traces...")
     for packet in packets:
         i_packet += 1
-        printProgressBar(i_packet, number_of_packets, prefix = 'Progress:', suffix = 'Complete', length = 50)
+        if print_progress:
+            printProgressBar(i_packet, number_of_packets, prefix = 'Progress:', suffix = 'Complete', length = 50)
         
         # parse the dns packets for the dns map
         # Get the DNS packets
@@ -689,22 +690,18 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                     
     
     # Printing the dns map
-    dns_map.print_map()
+    if print_map:
+        print("DNS map:")
+        dns_map.print_map()
                     
     # Sorting the patterns by protocol
     patterns.sort(key=lambda x: x.protocol)                
     
-    # for node in patterns:
-    #     node.print_tree()
-    #     print("---")
-        
-    # print total number of nodes
-    c = len(patterns)
-    for node in patterns:
-        c += len(node.childrens)
-        for child in node.childrens:
-            c += len(child.childrens)
-    print("Total number of nodes after simplification: " + str(c))
+    if print_tree:
+        print("Patterns tree:")
+        for node in patterns:
+            node.print_tree()
+            print("---")
     
     # Patterns object creation
     pattern_list = []
@@ -737,20 +734,17 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
 
     # merge bidirectional patterns
     pattern_list = merge_bidirectional_patterns(pattern_list)
-    YamlResult = patternToYAML(pattern_list, dns_map)
-    print(YamlResult)          
+    YamlResult = patternToYAML(pattern_list, dns_map)      
     return YamlResult
 
-if __name__ == "__main__":
-    file_path = 'traces/philips-hue.pcap'
-
+def run(file_path:str, print_map:bool=False, print_tree:bool=False, print_patterns:bool=True):
     # Read the PCAP file
     print("Progress: Loading packets...")
     
     packets = rdpcap(file_path)
     number_of_packets = len(packets)
     # Find devices
-    devices = findDevices(packets, number_of_packets)
+    devices = findDevices(packets, number_of_packets, True)
     if len(devices) == 0:
         print("No local devices found in .pcap file.")
         exit()
@@ -778,10 +772,12 @@ if __name__ == "__main__":
         except ValueError:
             print("Invalid input. Please enter a number between 1 and " + str(len(devices)))
     gateway = devices[gateway_number-1]
-    
-    # Device data from philips hue pcap if bypassing the device selection is needed
-    # device_ipv4 = "192.168.1.141"
-    # device_ipv6 = "fe80::217:88ff:fe74:c2dc"
-    # device_mac = "00:17:88:74:c2:dc"
     # Analyze packets
-    patterns = analyzer(packets, device.ipv4, device.ipv6, device.mac, number_of_packets, device.name, gateway.ipv4, gateway.ipv6, gateway.mac)
+    patterns = analyzer(packets, device.ipv4, device.ipv6, device.mac, number_of_packets, device.name, gateway.ipv4, gateway.ipv6, gateway.mac, print_map, print_tree, True)
+
+    if print_patterns:
+        print("Patterns found:")
+        print(patterns)
+if __name__ == "__main__":
+    file_path = 'traces/philips-hue.pcap'
+    run(file_path)
