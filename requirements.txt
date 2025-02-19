@@ -1,0 +1,6 @@
+click==8.1.8
+Flask==3.1.0
+manuf==1.1.5
+prettytable==3.14.0
+PyYAML==6.0.2
+scapy==2.6.1

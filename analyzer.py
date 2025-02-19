@@ -33,6 +33,7 @@ from node import Node
 from patternToYAML import patternToYAML, remove_duplicates
 from bidirectionalSimplifier import merge_bidirectional_patterns
 from deviceInfo import get_device_name_by_address
+from prettytable import PrettyTable
 
 # --------------------
 # CONSTANTS
@@ -360,7 +361,7 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                         # HTTP packet is a response
                         pass
                 # Check DNS case
-                elif packet.haslayer(DNS) and not packet[DNS].qd.qname.decode().endswith(".local."):
+                elif packet.haslayer(DNS) and not (packet[DNS].qd.qname.decode().endswith(".local.") or (my_node_1.protocol == "udp" and my_node_1.element.dst_port == 5353)):
                     try:
                         type_name = None
                         dns_type = packet[DNS].qd.qtype
@@ -397,7 +398,7 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                         # Error in the DNS packet process
                         pass
                 # Check mDNS case
-                if packet.haslayer(DNS) and packet[DNS].qd.qname.decode().endswith(".local."):
+                if packet.haslayer(DNS) and (packet[DNS].qd.qname.decode().endswith(".local.") or (my_node_1.protocol == "udp" and my_node_1.element.dst_port == 5353)):
                     try:
                         is_response = packet[DNS].qr == 1
                         mdns_packets = []
@@ -422,6 +423,10 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                                     qtypes.append("PTR")
                                 elif t == 255:
                                     qtypes.append("ANY")
+                                elif t == 16:
+                                    qtypes.append("TXT")
+                                elif t == 33:
+                                    qtypes.append("SRV")
                                 else:
                                     qtypes.append(str(packet[DNS].qd[i].qtype))
                             mdns_dict = {}
@@ -749,8 +754,11 @@ def run(file_path:str, print_map:bool=False, print_tree:bool=False, print_patter
         print("No local devices found in .pcap file.")
         exit()
     print(f"{len(devices)} devices found in .pcap file:")
+    table = PrettyTable()
+    table.field_names = ["Device", "Name", "IPv4", "IPv6", "MAC"]
     for i in range(len(devices)):
-        print("Device " + str(i+1) + ": " + str(devices[i]))
+        table.add_row([i+1, devices[i].name, devices[i].ipv4, devices[i].ipv6, devices[i].mac])
+    print(table)
     
     # Ask the user to select the device to analyze
     while True:

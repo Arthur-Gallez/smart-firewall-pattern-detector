@@ -12,6 +12,14 @@
             padding: 0;
             background-color: #f9f9f9;
         }
+        p {
+            max-width: 80%;
+            margin: 0 auto;
+            padding: 20px;
+            font-size: 1.5em;
+            text-align: center;
+            color:#434343;
+        }
         h1 {
             text-align: center;
             color: #333;
@@ -49,8 +57,8 @@
     </style>
 </head>
 <body>
-    <h1>Pattern Detector</h1>
-    <!-- Form for the user to submit a pcap file -->
+    <h1>Smart Firewall Pattern Detector</h1>
+    <p>This web interface provides easy access to the Pattern Detector. Submit a pcap file containing the network traces of a device you want to analyze (ideally from the gateway view). Then select the correct device and gateway, and the analyzer will provide you with a list of usable patterns the firewall detected in the traces and suggestions of more complex interactions.</p>
     <form action="/analyze" method="post" enctype="multipart/form-data">
         <input type="file" name="file" id="file" accept=".pcap">
         <input type="submit" value="Submit">
