@@ -361,7 +361,7 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                         # HTTP packet is a response
                         pass
                 # Check DNS case
-                elif packet.haslayer(DNS) and not (packet[DNS].qd.qname.decode().endswith(".local.") or (my_node_1.protocol == "udp" and my_node_1.element.dst_port == 5353)):
+                elif packet.haslayer(DNS) and not (packet[DNS].qd.qname.decode().endswith(".local.") or (my_node_1 is not None and my_node_1.protocol == "udp" and my_node_1.element.dst_port == 5353)):
                     try:
                         type_name = None
                         dns_type = packet[DNS].qd.qtype
@@ -398,7 +398,7 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                         # Error in the DNS packet process
                         pass
                 # Check mDNS case
-                if packet.haslayer(DNS) and (packet[DNS].qd.qname.decode().endswith(".local.") or (my_node_1.protocol == "udp" and my_node_1.element.dst_port == 5353)):
+                if packet.haslayer(DNS) and (packet[DNS].qd.qname.decode().endswith(".local.") or (my_node_1 is not None and my_node_1.protocol == "udp" and my_node_1.element.dst_port == 5353)):
                     try:
                         is_response = packet[DNS].qr == 1
                         mdns_packets = []

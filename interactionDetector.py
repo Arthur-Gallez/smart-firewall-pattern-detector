@@ -1,7 +1,7 @@
 from yaml import safe_load, dump
 
 class Interaction:
-    def __init__(self, name: str, patterns: list):
+    def __init__(self, name: str, patterns: list, domain: str = None):
         """Instantiates an Interaction object.
 
         Args:
@@ -10,6 +10,7 @@ class Interaction:
         """
         self.name = name
         self.patterns = patterns
+        self.domain = domain
 
     def getYAML(self, n):
         """Generates YAML representation of the interaction.
@@ -32,6 +33,12 @@ class Interaction:
                     d[self.name]["dhcp-request"] = f"!include patterns.{pattern}"
                 elif "ack" in pattern:
                     d[self.name]["dhcp-ack"] = f"!include patterns.{pattern}"
+        elif n == -2:
+            for pattern in self.patterns:
+                if pattern.startswith("dns"):
+                    d[self.name]["dns"] = f"!include patterns.{pattern} protocols.dns.domain-name:{self.domain}" 
+                else:
+                    d[self.name]["then_" + pattern] = f"!include patterns.{pattern}"
         else:
             for pattern in self.patterns:
                 d[self.name][pattern[n:]] = f"!include patterns.{pattern}"
@@ -49,6 +56,28 @@ def find_interactions(YAML):
     suggestions = []
     suggestions.extend(arp_interaction_finder(YAML))
     suggestions.extend(dhcp_interaction_finder(YAML))
+    suggestions.extend(dns_dependency_interaction_finder(YAML))
+    return suggestions
+
+def dns_dependency_interaction_finder(YAML):
+    YAML = safe_load(YAML)
+    domain_list = []
+    for pattern_name in YAML:
+        if pattern_name.startswith("dns") and not pattern_name.endswith("template"):
+            dns_data = YAML[pattern_name]["protocols"]["dns"]
+            sub_list = []
+            for sub in dns_data["domain-name"]:
+                sub_list.append((pattern_name, sub))
+            domain_list.extend(sub_list)
+    interaction_list = []
+    for pattern_name in YAML:
+        for domain in domain_list:
+            if domain[1] in pattern_name:
+                interaction = Interaction ("dns_and_" + pattern_name, [domain[0] + "_template", pattern_name], domain=domain[1])
+                interaction_list.append(interaction)
+    suggestions = []
+    for interaction in interaction_list:
+        suggestions.append(interaction.getYAML(-2))
     return suggestions
 
 def arp_interaction_finder(YAML):

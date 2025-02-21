@@ -18,3 +18,8 @@ class Pattern:
         self.packet_number_2 = packet_number_2  # third layer packet number
         self.is_bidirectional = is_bidirectional
         
+    def copy(self):
+        """Return a copy of the pattern"""
+        return Pattern(self.layer_0, self.layer_1, self.layer_2, 
+                       self.packet_number_0, self.packet_number_1, self.packet_number_2,
+                       self.is_bidirectional)

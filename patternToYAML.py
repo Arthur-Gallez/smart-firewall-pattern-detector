@@ -2,7 +2,9 @@
 
 Made by: Gallez Arthur & Zhang Zexin
 """
-from yaml import dump
+from yaml import safe_dump
+from copy import deepcopy
+from yaml import SafeDumper
 
 def remove_duplicates(obj_list):
     """
@@ -206,5 +208,19 @@ def patternToYAML(patterns, dns_map):
         if pattern.layer_0:
             yaml_dict[name]['protocols'][pattern.layer_0.__class__.__name__] = dict(pattern.layer_0.__dict__())
 
-    d = dump(yaml_dict, sort_keys=False)
+    to_add = []
+    for name, pattern in yaml_dict.items():
+        if name.startswith("dns"):
+            new_name = name + "_template"
+            new_pattern = deepcopy(pattern)
+            new_pattern["protocols"]["dns"]["domain-name"] = None
+            to_add.append((new_name, new_pattern))
+    for new_name, new_pattern in to_add:
+        yaml_dict[new_name] = new_pattern
+
+    SafeDumper.add_representer(
+        type(None),
+        lambda dumper, value: dumper.represent_scalar(u'tag:yaml.org,2002:null', '')
+    )
+    d = safe_dump(yaml_dict, sort_keys=False, default_flow_style=False)
     return d
