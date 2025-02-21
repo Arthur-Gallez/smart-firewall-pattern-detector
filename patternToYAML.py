@@ -218,6 +218,7 @@ def patternToYAML(patterns, dns_map):
     for new_name, new_pattern in to_add:
         yaml_dict[new_name] = new_pattern
 
+    # Solution from https://stackoverflow.com/questions/30134110/how-can-i-output-blank-value-in-python-yaml-file
     SafeDumper.add_representer(
         type(None),
         lambda dumper, value: dumper.represent_scalar(u'tag:yaml.org,2002:null', '')
