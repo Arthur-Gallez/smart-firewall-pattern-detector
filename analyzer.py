@@ -345,7 +345,7 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                                         uri = raw.split(" ")[1]
                                         # Only keep the path
                                         if "?" in uri:
-                                            uri = uri.split("?")[0]
+                                            uri = uri.split("?")[0] + "?*"
                                 else:
                                     uri = None  # Add this line to fix the response packet
                             except AttributeError:
