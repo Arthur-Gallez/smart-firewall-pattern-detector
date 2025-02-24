@@ -339,8 +339,15 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                                 is_response = True if packet.haslayer(HTTPResponse) else False
                                 if not is_response:
                                     # HTTP layer contains no data and is not a response
-                                    continue
-                                uri = None  # Add this line to fix the response packet
+                                    if packet.haslayer(Raw):
+                                        raw = packet[Raw].load.decode()
+                                        method = raw.split(" ")[0]
+                                        uri = raw.split(" ")[1]
+                                        # Only keep the path
+                                        if "?" in uri:
+                                            uri = uri.split("?")[0]
+                                else:
+                                    uri = None  # Add this line to fix the response packet
                             except AttributeError:
                                 is_response = False
                         # To simplify queries/answers, we will not fill in the "response" field

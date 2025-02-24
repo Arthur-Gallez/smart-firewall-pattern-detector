@@ -4,6 +4,7 @@ Made by: Gallez Arthur & Zhang Zexin
 """
 from scapy.all import rdpcap, Ether, IP, IPv6
 import manuf
+import ipaddress
 from progressBar import printProgressBar
 
 class Device:
@@ -68,6 +69,7 @@ def findDevices(packets, number_of_packets: int, print_progress: bool):
     print("Finding devices...")
     i_packet = 0
     for packet in packets:
+
         if print_progress:
             printProgressBar(i_packet, number_of_packets, prefix='Progress:', suffix='Complete', length=50)
         i_packet += 1
@@ -83,11 +85,23 @@ def findDevices(packets, number_of_packets: int, print_progress: bool):
             ipv4 = packet[IP].src
             if ipv4 in filtered_ipv4:
                 continue
+            # Check if ip is local
+            addr = ipaddress.ip_address(ipv4)
+            prefix1 = ipaddress.ip_network("10.0.0.0/8")
+            prefix2 = ipaddress.ip_network("172.16.0.0/12")
+            prefix3 = ipaddress.ip_network("192.168.0.0/16")
+            if addr not in prefix1 and addr not in prefix2 and addr not in prefix3:
+                continue
 
         # Extract IPv6 layer
         if IPv6 in packet:
             ipv6 = packet[IPv6].src
             if ipv6 in filtered_ipv6:
+                continue
+            # check if ip is local
+            addr = ipaddress.ip_address(ipv6)
+            prefix = ipaddress.ip_network("fe80::/10")
+            if addr not in prefix:
                 continue
 
         # Skip empty data
