@@ -89,6 +89,8 @@ def merge_nodes_on_port(children, port_attr, merge_attr):
             ):
                 # keep the smaller packet_number of the two children
                 children[i].packet_number = min(children[i].packet_number, children[j].packet_number)
+                children[i].last_seen(children[j].last_seen_time)
+                children[i].stat_count += children[j].stat_count
                 # Merge child nodes
                 children[i].childrens.extend(children[j].childrens)
                 if getattr(children[i].element, merge_attr) != getattr(children[j].element, merge_attr):
@@ -241,16 +243,22 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                         if node.element == ip:
                             # We found a node with the same IP data
                             my_node_0 = node
+                            # increase the stat_count of the node
+                            my_node_0.last_seen(packet.time)
+                            my_node_0.stat_count += 1
                             break
                     if node.protocol == "ipv6":
                         if node.element == ip:
                             # We found a node with the same IP data
                             my_node_0 = node
+                            # increase the stat_count of the node
+                            my_node_0.last_seen(packet.time)
                             break
                 if my_node_0 is None:
                     # No firt layer found
                     my_node_0 = Node(ip, "ipv4" if isinstance(ip, ipv4) else "ipv6", 
                                     childrens=[], layer=0, packet_number=i_packet)
+                    my_node_0.last_seen(packet.time)
                     patterns.append(my_node_0)
                 # ----------------------------------------
                 # Second layer (tcp, udp, etc)
@@ -265,11 +273,15 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                             if node.element == tcp_info:
                                 # We found a node with the same TCP data
                                 my_node_1 = node
+                                # increase the stat_count of the node
+                                my_node_1.last_seen(packet.time)
+                                my_node_1.stat_count += 1
                                 break
                     if my_node_1 is None:
                         # No second layer found
                         my_node_1 = Node(tcp_info, "tcp", layer=1, 
                                         childrens=[], packet_number=i_packet)
+                        my_node_1.last_seen(packet.time)
                         my_node_0.childrens.append(my_node_1)
                 except IndexError as e:
                     # Not a TCP packet
@@ -284,11 +296,15 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                                 if node.element == udp_info:
                                     # We found a node with the same UDP data
                                     my_node_1 = node
+                                    # increase the stat_count of the node
+                                    my_node_1.last_seen(packet.time)
+                                    my_node_1.stat_count += 1
                                     break
                         if my_node_1 is None:
                             # No second layer found
                             my_node_1 = Node(udp_info, "udp", layer=1, 
                                             childrens=[], packet_number=i_packet)
+                            my_node_1.last_seen(packet.time)
                             my_node_0.childrens.append(my_node_1)
                     except IndexError as e:
                         # Not a UDP packet
@@ -311,11 +327,15 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                                     if node.element == igmp_packet:
                                         # We found a node with the same IGMP data
                                         my_node_1 = node
+                                        # increase the stat_count of the node
+                                        my_node_1.last_seen(packet.time)
+                                        my_node_1.stat_count += 1
                                         break
                             if my_node_1 is None:
                                 # No third layer found
                                 my_node_1 = Node(igmp_packet, "igmp", layer=2, 
                                                 childrens=[], packet_number=i_packet)
+                                my_node_1.last_seen(packet.time)
                                 my_node_0.childrens.append(my_node_1)
                         except AttributeError as e:
                             # Not an IGMP packet
@@ -340,8 +360,13 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                                 if not is_response:
                                     # HTTP layer contains no data and is not a response
                                     if packet.haslayer(Raw):
-                                        raw = packet[Raw].load.decode()
+                                        try:
+                                            raw = packet[Raw].load.decode()
+                                        except:
+                                            continue
                                         method = raw.split(" ")[0]
+                                        if method not in ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "TRACE", "CONNECT", "PATCH"]:
+                                            continue
                                         uri = raw.split(" ")[1]
                                         # Only keep the path
                                         if "?" in uri:
@@ -358,11 +383,15 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                                 if node.element == http_packet:
                                     # We found a node with the same HTTP data
                                     my_node_2 = node
+                                    # increase the stat_count of the node
+                                    my_node_2.last_seen(packet.time)
+                                    my_node_2.stat_count += 1
                                     break
                         if my_node_2 is None:
                             # No third layer found
                             my_node_2 = Node(http_packet, "http", layer=2,
                                             childrens=[], packet_number=i_packet)
+                            my_node_2.last_seen(packet.time)
                             my_node_1.childrens.append(my_node_2)
                     except AttributeError:
                         # HTTP packet is a response
@@ -391,15 +420,22 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                                 if node.element == dns_packet:
                                     # We found a node with the same DNS data
                                     my_node_2 = node
+                                    # increase the stat_count of the node
+                                    my_node_2.last_seen(packet.time)
+                                    my_node_2.stat_count += 1
                                     break
                                 elif node.element.merge(dns_packet):
                                     # We found a node with the same domain name
                                     my_node_2 = node
+                                    # increase the stat_count of the node
+                                    my_node_2.last_seen(packet.time)
+                                    my_node_2.stat_count += 1
                                     break
                         if my_node_2 is None:
                             # No third layer found
                             my_node_2 = Node(dns_packet, "dns", layer=2,
                                             childrens=[], packet_number=i_packet)
+                            my_node_2.last_seen(packet.time)
                             my_node_1.childrens.append(my_node_2)
                     except AttributeError:
                         # Error in the DNS packet process
@@ -454,11 +490,15 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                                     if node.element == mdns_packet:
                                         # We found a node with the same mDNS data
                                         my_node_2 = node
+                                        # increase the stat_count of the node
+                                        my_node_2.last_seen(packet.time)
+                                        my_node_2.stat_count += 1
                                         break
                             if my_node_2 is None:
                                 # No third layer found
                                 my_node_2 = Node(mdns_packet, "mdns", layer=2,
                                                 childrens=[], packet_number=i_packet)
+                                my_node_2.last_seen(packet.time)
                                 my_node_1.childrens.append(my_node_2)
                     except AttributeError as e:
                         # Error in the mDNS packet process
@@ -485,11 +525,15 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                                 if node.element == dhcp_packet:
                                     # We found a node with the same DHCP data
                                     my_node_2 = node
+                                    # increase the stat_count of the node
+                                    my_node_2.last_seen(packet.time)
+                                    my_node_2.stat_count += 1
                                     break
                         if my_node_2 is None:
                             # No third layer found
                             my_node_2 = Node(dhcp_packet, "dhcp", layer=2, 
                                             childrens=[], packet_number=i_packet)
+                            my_node_2.last_seen(packet.time)
                             my_node_1.childrens.append(my_node_2)
                     except AttributeError as e:
                         # DHCP packet with error (ex: DHCP in a icmp destination unreachable packet)
@@ -513,11 +557,15 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                                 if node.element == ssdp_packet:
                                     # We found a node with the same SSDP data
                                     my_node_2 = node
+                                    # increase the stat_count of the node
+                                    my_node_2.last_seen(packet.time)
+                                    my_node_2.stat_count += 1
                                     break
                         if my_node_2 is None:
                             # No third layer found
                             my_node_2 = Node(ssdp_packet, "ssdp", layer=2, 
                                             childrens=[], packet_number=i_packet)
+                            my_node_2.last_seen(packet.time)
                             my_node_1.childrens.append(my_node_2)
                     except AttributeError as e:
                         print(e)
@@ -543,11 +591,15 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                                 if node.element == coap_packet:
                                     # We found a node with the same COAP data
                                     my_node_2 = node
+                                    # increase the stat_count of the node
+                                    my_node_2.last_seen(packet.time)
+                                    my_node_2.stat_count += 1
                                     break
                         if my_node_2 is None:
                             # No third layer found
                             my_node_2 = Node(coap_packet, "coap", layer=2, 
                                             childrens=[], packet_number=i_packet)
+                            my_node_2.last_seen(packet.time)
                             my_node_1.childrens.append(my_node_2)
                     
                     except AttributeError as e:
@@ -577,10 +629,14 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                             if node.element == arp_packet:
                                 # We found a node with the same ARP data
                                 my_node_0 = node
+                                # increase the stat_count of the node
+                                my_node_0.last_seen(packet.time)
+                                my_node_0.stat_count += 1
                                 break
                     if my_node_0 is None:
                         # No first layer found
                         my_node_0 = Node(arp_packet, "arp", childrens=[], layer=0, packet_number=i_packet)
+                        my_node_0.last_seen(packet.time)
                         patterns.append(my_node_0)
             except ValueError as e:
                 # Packet is not an ARP Packet
@@ -616,6 +672,9 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
             if patterns[i].protocol == patterns[j].protocol and patterns[i].element == patterns[j].element:
                 # keep the smaller packet_number
                 patterns[i].packet_number = min(patterns[i].packet_number, patterns[j].packet_number)
+                # increase the stat_count of the node
+                patterns[i].last_seen(patterns[j].last_seen_time)
+                patterns[i].stat_count += patterns[j].stat_count
                 # Merge nodes
                 patterns[i].childrens.extend(patterns[j].childrens)
                 # Remove the duplicate node
@@ -633,6 +692,9 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                 ):
                     # keep the smaller packet_number of the two children
                     patterns[i].childrens[k].packet_number = min(patterns[i].childrens[k].packet_number, patterns[i].childrens[l].packet_number)
+                    # increase the stat_count of the node
+                    patterns[i].childrens[k].last_seen(patterns[i].childrens[l].last_seen_time)
+                    patterns[i].childrens[k].stat_count += patterns[i].childrens[l].stat_count
                     # Merge child nodes
                     patterns[i].childrens[k].childrens.extend(patterns[i].childrens[l].childrens)
                     patterns[i].childrens.pop(l)
@@ -675,6 +737,9 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                                         if new_dns_node.element.merge(dns_node.element):
                                             # keep the smaller packet_number of the two nodes
                                             new_dns_node.packet_number = min(new_dns_node.packet_number, dns_node.packet_number)
+                                            # increase the stat_count of the node
+                                            new_dns_node.last_seen(dns_node.last_seen_time)
+                                            new_dns_node.stat_count += dns_node.stat_count
                                             new_dns_node.element.domain_name = remove_duplicates(new_dns_node.element.domain_name)
                                             merged = True
                                             break
@@ -690,6 +755,9 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                                         if new_dns_node.element.qtype == dns_node.element.qtype:
                                             # keep the smaller packet_number of the two nodes
                                             new_dns_node.packet_number = min(new_dns_node.packet_number, dns_node.packet_number)
+                                            # increase the stat_count of the node
+                                            new_dns_node.last_seen(dns_node.last_seen_time)
+                                            new_dns_node.stat_count += dns_node.stat_count
                                             new_dns_node.element.domain_name.extend(dns_node.element.domain_name)
                                             new_dns_node.element.domain_name = remove_duplicates(new_dns_node.element.domain_name)
                                             merged = True
@@ -721,27 +789,35 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
         layer_0 = node.element
         packet_number_0 = node.packet_number
         if node.is_leaf():
+            stat_rate = node.rate
+            stat_count = node.stat_count
             p = Pattern(layer_0=layer_0, layer_1=None, layer_2=None,
-                       packet_number_0=packet_number_0, packet_number_1=0, packet_number_2=0)
+                       packet_number_0=packet_number_0, packet_number_1=0, packet_number_2=0, stat_rate=stat_rate, stat_count=stat_count)
             pattern_list.append(p)
         else:
             for child in node.childrens:
                 layer_1 = child.element
                 packet_number_1 = child.packet_number
                 if child.is_leaf():
+                    stat_rate = child.rate
+                    stat_count = child.stat_count
                     p = Pattern(layer_0=layer_0, layer_1=layer_1, layer_2=None,
                               packet_number_0=packet_number_0, 
                               packet_number_1=packet_number_1,
-                              packet_number_2=0)
+                              packet_number_2=0, stat_rate=stat_rate, stat_count=stat_count)
                     pattern_list.append(p)
                 else:
                     for grandchild in child.childrens:
                         layer_2 = grandchild.element
                         packet_number_2 = grandchild.packet_number
+                        stat_rate = grandchild.rate
+                        stat_count = grandchild.stat_count
                         p = Pattern(layer_0=layer_0, layer_1=layer_1, layer_2=layer_2,
                                   packet_number_0=packet_number_0,
                                   packet_number_1=packet_number_1,
-                                  packet_number_2=packet_number_2)
+                                  packet_number_2=packet_number_2,
+                                  stat_rate=stat_rate,
+                                  stat_count=stat_count)
                         pattern_list.append(p)
 
     # merge bidirectional patterns

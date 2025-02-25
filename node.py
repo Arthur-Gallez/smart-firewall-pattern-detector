@@ -13,6 +13,7 @@ class Node:
     protocol = ""
     childrens = []
     packet_number = 0
+    stat_count = 0
     
     def __init__(self, element, protocol, childrens=[], layer=0, packet_number=0):
         """Initialize the Node object.
@@ -29,7 +30,16 @@ class Node:
         self.protocol = protocol
         self.childrens = childrens
         self.packet_number = packet_number
-        
+        self.last_seen_time = 0
+        self.rate = 0
+        self.stat_count = 1
+    
+    def last_seen(self, time):
+        old = self.last_seen_time
+        self.last_seen_time = time
+        if old != 0 and time > old:
+            new_rate = 1 / (time - old)
+            self.rate = max(self.rate, new_rate)
     
     def print_tree(self):
         """Print the tree."""
@@ -38,6 +48,7 @@ class Node:
         print(spacer + "Layer: " + str(self.layer))
         print(spacer + "Protocol: " + str(self.protocol))
         print(spacer + "Packet #: " + str(self.packet_number))
+        print(spacer + "Stat count: " + str(self.stat_count))
         for child in self.childrens:
             child.print_tree()
             

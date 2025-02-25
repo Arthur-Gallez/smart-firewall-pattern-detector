@@ -88,7 +88,9 @@ def merge_bidirectional_patterns(pattern_list):
                     packet_number_0=base_pattern.packet_number_0,
                     packet_number_1=base_pattern.packet_number_1,
                     packet_number_2=base_pattern.packet_number_2,
-                    is_bidirectional=True  # Set bidirectional flag
+                    is_bidirectional=True,  # Set bidirectional flag
+                    stat_count=pattern1.stat_count + pattern2.stat_count,
+                    stat_rate=pattern1.stat_rate + pattern2.stat_rate
                 )
                 merged_patterns.append(merged)
                 used_patterns.add(i)

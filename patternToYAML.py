@@ -207,6 +207,11 @@ def patternToYAML(patterns, dns_map):
             yaml_dict[name]['protocols'][pattern.layer_1.__class__.__name__] = dict(pattern.layer_1.__dict__())
         if pattern.layer_0:
             yaml_dict[name]['protocols'][pattern.layer_0.__class__.__name__] = dict(pattern.layer_0.__dict__())
+        if pattern.stat_rate > 1:
+            if pattern.stat_rate < 1000:
+                yaml_dict[name]['stats'] = {'rate': str(round(round(pattern.stat_rate)*1.5))+ "/second"}
+            else:
+                yaml_dict[name]['stats'] = {'packet-count': round(pattern.stat_count*1.5)}
 
     to_add = []
     for name, pattern in yaml_dict.items():
@@ -214,6 +219,7 @@ def patternToYAML(patterns, dns_map):
             new_name = name + "_template"
             new_pattern = deepcopy(pattern)
             new_pattern["protocols"]["dns"]["domain-name"] = None
+            del new_pattern['stats']
             to_add.append((new_name, new_pattern))
     for new_name, new_pattern in to_add:
         yaml_dict[new_name] = new_pattern
