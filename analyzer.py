@@ -27,6 +27,7 @@ from protocols.dhcp import dhcp
 from protocols.igmp import igmp
 from protocols.ssdp import ssdp
 from protocols.coap import coap
+from protocols.icmp import icmp
 from patternClass import Pattern
 from progressBar import printProgressBar
 from node import Node
@@ -342,6 +343,34 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                             #print(packet)
                             pass
                 
+                if my_node_1 is None:
+                    if "ICMP" in str(packet.layers):
+                        # ICMP packet
+                        try:
+                            icmp_type = packet[ICMP].type
+                            icmp_packet = icmp(icmp_type)
+                            my_node_1 = None
+                            packet.show()
+                            for node in my_node_0.childrens:
+                                if node.protocol == "icmp":
+                                    if node.element == icmp_packet:
+                                        # We found a node with the same ICMP data
+                                        my_node_1 = node
+                                        # increase the stat_count of the node
+                                        my_node_1.last_seen(packet.time)
+                                        my_node_1.stat_count += 1
+                                        break
+                            if my_node_1 is None:
+                                # No third layer found
+                                my_node_1 = Node(icmp_packet, "icmp", layer=2, 
+                                                childrens=[], packet_number=i_packet)
+                                my_node_1.last_seen(packet.time)
+                                my_node_0.childrens.append(my_node_1)
+                        except AttributeError as e:
+                            # ICMP packet with error
+                            # print(packet)
+                            # print(e)
+                            pass
                 # ----------------------------------------
                 # Third layer (http, dns, etc)
                 # ----------------------------------------
@@ -540,10 +569,6 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                         # print(packet)
                         # print(e)
                         pass
-                elif "ICMP" in str(packet.layers):
-                    # ICMP packet
-                    # Not supported yet
-                    pass
                 # Check SSDP case
                 elif packet.haslayer(UDP) and packet.haslayer(Raw) and (packet[Raw].load.startswith(b"M-SEARCH") or packet[Raw].load.startswith(b"NOTIFY")):
                     # SSDP packet

@@ -198,9 +198,10 @@ def patternToYAML(patterns, dns_map):
     yaml_dict = {}
     for name, pattern in pattern_dict.items():
         yaml_dict[name] = {
-            'protocols': {},
-            'bidirectionnal': pattern.is_bidirectional
+            'protocols': {}
         }
+        if pattern.is_bidirectional:
+            yaml_dict[name]['bidirectionnal'] = True
         if pattern.layer_2:
             yaml_dict[name]['protocols'][pattern.layer_2.__class__.__name__] = dict(pattern.layer_2.__dict__())
         if pattern.layer_1:
