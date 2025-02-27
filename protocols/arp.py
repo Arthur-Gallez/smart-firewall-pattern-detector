@@ -22,13 +22,13 @@ class arp:
     def __init__(self, type, sha, spa, tha, tpa, mac_gateway):
         self.type = type
         self.sha = sha
-        self.spa = spa
         self.tha = tha
+        self.spa = spa
         self.tpa = tpa
         self.mac_addrs["gateway"] = mac_gateway
 
     def __str__(self):
-        return "ARP: type=%s, sha=%s, spa=%s, tha=%s, tpa=%s" % (self.type, self.sha, self.spa, self.tha, self.tpa)
+        return "ARP: type=%s, sha=%s, tha=%s, spa=%s, tpa=%s" % (self.type, self.sha, self.tha, self.spa, self.tpa)
     
     def __eq__(self, value: object) -> bool:
         return self.type == value.type and self.sha == value.sha and self.spa == value.spa and self.tha == value.tha and self.tpa == value.tpa
@@ -78,7 +78,7 @@ class arp:
         return {
             "type": self.type,
             "sha": self.sha,
-            "spa": self.spa,
             "tha": self.tha,
+            "spa": self.spa,
             "tpa": self.tpa
         }
