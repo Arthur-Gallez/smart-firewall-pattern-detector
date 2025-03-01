@@ -220,7 +220,8 @@ def patternToYAML(patterns, dns_map):
             new_name = name + "_template"
             new_pattern = deepcopy(pattern)
             new_pattern["protocols"]["dns"]["domain-name"] = None
-            del new_pattern['stats']
+            if "stats" in new_pattern:
+                del new_pattern['stats']
             to_add.append((new_name, new_pattern))
     for new_name, new_pattern in to_add:
         yaml_dict[new_name] = new_pattern

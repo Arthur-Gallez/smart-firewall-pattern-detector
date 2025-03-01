@@ -350,7 +350,6 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                             icmp_type = packet[ICMP].type
                             icmp_packet = icmp(icmp_type)
                             my_node_1 = None
-                            packet.show()
                             for node in my_node_0.childrens:
                                 if node.protocol == "icmp":
                                     if node.element == icmp_packet:

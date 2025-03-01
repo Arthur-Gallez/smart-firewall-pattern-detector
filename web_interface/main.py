@@ -11,6 +11,9 @@ app = Flask(__name__)
 
 thread = None
 devices = None
+device_name = None
+patterns = None
+suggestions = None
 
 @app.route("/")
 def hello_world():
@@ -63,16 +66,39 @@ def devices():
 
 @app.route("/getPatterns", methods=['POST'])
 def get_patterns():
-    global cap, number_of_packets
+    global thread, device_name
+    if thread is not None and thread.is_alive():
+        return "Analysis is already running. Please wait.", 400
+
     selected_device = request.form.get("device")
     mac, ipv4, ipv6, i = selected_device.split("|")
     selected_gateway = request.form.get("gateway")
     mac_gateway, ipv4_gateway, ipv6_gateway, i_gateway = selected_gateway.split("|")
     device_name = request.form.get("device_name-" + str(i))
+
     if not selected_device or not device_name:
         return "Device selection or name missing", 400
-    patterns = analyzer.analyzer(cap, ipv4, ipv6, mac, number_of_packets, device_name, ipv4_gateway, ipv6_gateway, mac_gateway, False, False, False)
-    suggestions = find_interactions(patterns)
+
+    def analyze_patterns():
+        global patterns, suggestions
+        patterns = analyzer.analyzer(cap, ipv4, ipv6, mac, number_of_packets, device_name, ipv4_gateway, ipv6_gateway, mac_gateway, False, False, False)
+        suggestions = find_interactions(patterns)
+
+    thread = Thread(target=analyze_patterns)
+    thread.start()
+
+    return render_template('loading_patterns.html')
+
+@app.route("/patterns_status")
+def patterns_status():
+    global thread
+    if thread is None:
+        return Response("false")
+    return Response(str(not thread.is_alive()))
+
+@app.route("/patterns_result")
+def patterns_result():
+    global patterns, suggestions, device_name
     return render_template('patterns.html', patterns=patterns, device=device_name, suggestions=suggestions)
 
 @app.route("/is_finished")
