@@ -2,7 +2,7 @@
 
 Made by: Gallez Arthur & Zhang Zexin
 """
-from scapy.all import rdpcap, Ether, IP, IPv6
+from scapy.all import rdpcap, Ether, IP, IPv6, ARP
 import manuf
 import ipaddress
 from progressBar import printProgressBar
@@ -102,6 +102,13 @@ def findDevices(packets, number_of_packets: int, print_progress: bool):
             addr = ipaddress.ip_address(ipv6)
             prefix = ipaddress.ip_network("fe80::/10")
             if addr not in prefix:
+                continue
+
+        if ARP in packet:
+            mac = packet[ARP].hwsrc
+            ipv4 = packet[ARP].psrc
+            # Check if ip is not default
+            if ipv4 in filtered_ipv4:
                 continue
 
         # Skip empty data
