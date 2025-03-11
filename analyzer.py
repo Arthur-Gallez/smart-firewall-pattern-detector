@@ -33,8 +33,8 @@ from progressBar import printProgressBar
 from node import Node
 from patternToYAML import patternToYAML, remove_duplicates
 from bidirectionalSimplifier import merge_bidirectional_patterns
-from deviceInfo import get_device_name_by_address
 from prettytable import PrettyTable
+from interactionDetector import *
 
 # --------------------
 # CONSTANTS
@@ -107,17 +107,16 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
     patterns = []
     dns_map = DNSMap()
     # Adding special cases to the DNS map
-    device_name_ipv4 = get_device_name_by_address(device_ipv4) if get_device_name_by_address(device_ipv4) is not None else device_name.replace(" ", "-")
-    device_name_ipv6 = get_device_name_by_address(device_ipv6) if get_device_name_by_address(device_ipv6) is not None else device_name.replace(" ", "-")
-    dns_map.add_ipv4("self", device_ipv4, device_name_ipv4)
-    dns_map.add_ipv6("self", device_ipv6, device_name_ipv6)
+    device_name = device_name.replace(" ", "-")
+    dns_map.add_ipv4("self", device_ipv4, device_name)
+    dns_map.add_ipv6("self", device_ipv6, device_name)
     # Gateway
     dns_map.add_ipv4("gateway", ipv4_gateway, "gateway")
     dns_map.add_ipv6("gateway", GATEWAY_IPV6, "gateway")
     dns_map.add_ipv6("gateway-local", ipv6_gateway, "gateway-local")
     # Phone
-    dns_map.add_ipv6("phone", PHONE_IPV6, get_device_name_by_address(PHONE_IPV6))
-    dns_map.add_ipv4("phone", PHONE, get_device_name_by_address(PHONE))
+    dns_map.add_ipv6("phone", PHONE_IPV6, "phone")
+    dns_map.add_ipv4("phone", PHONE, "phone")
     # Broadcast and other special cases
     dns_map.add_ipv4("broadcast", BROADCAST, "broadcast")
     dns_map.add_ipv6("broadcast", BROADCAST_IPV6, "broadcast")
@@ -854,10 +853,23 @@ def run(file_path:str, print_map:bool=False, print_tree:bool=False, print_patter
     gateway = devices[gateway_number-1]
     # Analyze packets
     patterns = analyzer(packets, device.ipv4, device.ipv6, device.mac, number_of_packets, device.name, gateway.ipv4, gateway.ipv6, gateway.mac, print_map, print_tree, True)
-
     if print_patterns:
-        print("Patterns found:")
+        device_yaml = device.get_yaml()
+        print("+------------------------------------+")
+        print("|          Device information        |")
+        print("+------------------------------------+")
+        print(device_yaml)
+        print("+------------------------------------+")
+        print("|          Patterns found            |")
+        print("+------------------------------------+")
         print(patterns)
+        suggestions = find_interactions(patterns)
+        if suggestions != []:
+            print("+------------------------------------+")
+            print("|          Suggestions               |")
+            print("+------------------------------------+")
+            for suggestion in suggestions:
+                print(suggestion)
 if __name__ == "__main__":
     file_path = 'traces/philips-hue.pcap'
     run(file_path)

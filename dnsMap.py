@@ -2,7 +2,6 @@
 
 Made by: Gallez Arthur & Zhang Zexin
 """
-import pyshark
 
 class DNSMap:
     """DNSMap class stores the mapping between domains and IPs."""
@@ -112,39 +111,4 @@ class DNSMap:
             print("     IPv4: " + str(self.map[domain]["ipv4"]))
             print("     IPv6: " + str(self.map[domain]["ipv6"]))
             print()
-            
-            
-
-if __name__ == "__main__":
-    # Example of use of the DNSMap from a pcap file
-    dns_map = DNSMap()
-
-    # Read the PCAP file
-    cap = pyshark.FileCapture('traces/philips-hue.pcap')
-
-    counter = 0
-    # Analyze packets
-    for packet in cap:
-        counter += 1
-        
-        # Get the DNS packets
-        if hasattr(packet, 'dns'):
-            dns = packet.dns
-            # Check if the packet is a DNS response
-            if hasattr(dns, 'a'):
-                # Get the domain and the IP
-                domain = dns.qry_name
-                ip = dns.a
-                # Add the domain and the IP to the map
-                dns_map.add_ipv4(domain, ip)
-            if hasattr(dns, 'aaaa'):
-                # Get the domain and the IP
-                domain = dns.qry_name
-                ip = dns.aaaa
-                # Add the domain and the IP to the map
-                dns_map.add_ipv6(domain, ip)
-    
-    print("Number of packets: " + str(counter))
-    print()
-    dns_map.print_map()
             

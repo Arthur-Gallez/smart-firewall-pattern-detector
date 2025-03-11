@@ -1,3 +1,7 @@
+"""
+ATTENTION, THIS SCRIPT IS FOR EVALUATION PURPOSES ONLY AND SHOULD ONLY BE RUN USING LINUX ENVIRONMENT
+"""
+
 import sys, os, asyncio
 import time
 import scapy.all as scapy
@@ -11,8 +15,9 @@ def get_measures():
         ("tplink-plug", 2, 1),
         ("tuya-motion-wan", 1, 2),
         ("tuya-motion-wlan2.4", 1, 2),
-        ("xiomi-cam-wan", 3, 2),
-        ("xiomi-cam-wlan2.4", 2, 1)
+        ("xiaomi-cam-wan", 3, 2),
+        ("xiaomi-cam-wlan2.4", 2, 1),
+        ("50000pcap", 9, 5)
     ]
 
     perfs = []

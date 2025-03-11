@@ -17,6 +17,7 @@ suggestions = None
 phone_ipv4 = None
 phone_ipv6 = None
 use_phone = False
+device = None
 
 @app.route("/")
 def hello_world():
@@ -69,7 +70,7 @@ def devices():
 
 @app.route("/getPatterns", methods=['POST'])
 def get_patterns():
-    global thread, device_name
+    global thread, device_name, device
     if thread is not None and thread.is_alive():
         return "Analysis is already running. Please wait.", 400
 
@@ -78,6 +79,8 @@ def get_patterns():
     selected_gateway = request.form.get("gateway")
     mac_gateway, ipv4_gateway, ipv6_gateway, i_gateway = selected_gateway.split("|")
     device_name = request.form.get("device_name-" + str(i))
+    device = devices[int(i)-1]
+    device.name = device_name
 
     if not selected_device or not device_name:
         return "Device selection or name missing", 400
@@ -101,8 +104,8 @@ def patterns_status():
 
 @app.route("/patterns_result")
 def patterns_result():
-    global patterns, suggestions, device_name
-    return render_template('patterns.html', patterns=patterns, device=device_name, suggestions=suggestions)
+    global patterns, suggestions, device_name, device
+    return render_template('patterns.html', patterns=patterns, device=device_name, suggestions=suggestions, device_info=device.get_yaml())
 
 @app.route("/is_finished")
 def is_finished():

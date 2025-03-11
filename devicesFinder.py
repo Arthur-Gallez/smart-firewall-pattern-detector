@@ -6,6 +6,7 @@ from scapy.all import rdpcap, Ether, IP, IPv6, ARP
 import manuf
 import ipaddress
 from progressBar import printProgressBar
+import yaml
 
 class Device:
     """Device class to store device information.
@@ -43,6 +44,22 @@ class Device:
             self.ipv6 = ipv6
         if name and not self.name:
             self.name = name
+    
+    def get_yaml(self):
+        """Return device information in YAML format."""
+        yaml_dict = {}
+        info = {}
+        if self.name:
+            info["name"] = self.name
+        if self.ipv4:
+            info["ipv4"] = self.ipv4
+        if self.ipv6:
+            info["ipv6"] = self.ipv6
+        if self.mac:
+            info["mac"] = self.mac
+        yaml_dict["device-info"] = info
+        return yaml.dump(yaml_dict)
+        
 
 def isInList(devices, data: str):
     """Check if a device with matching data exists in the list."""
