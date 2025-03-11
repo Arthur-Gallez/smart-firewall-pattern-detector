@@ -14,6 +14,9 @@ devices = None
 device_name = None
 patterns = None
 suggestions = None
+phone_ipv4 = None
+phone_ipv6 = None
+use_phone = False
 
 @app.route("/")
 def hello_world():
@@ -108,7 +111,11 @@ def is_finished():
         return Response("false")
     return Response(str(not thread.is_alive()))
 
-def run():
+def run(phone_ipv4=None, phone_ipv6=None, use_phone=False):
+    global PHONE_IPV4, PHONE_IPV6, USE_PHONE
+    PHONE_IPV4 = phone_ipv4
+    PHONE_IPV6 = phone_ipv6
+    USE_PHONE = use_phone
     app.run(debug=False)
 
 if __name__ == "__main__":

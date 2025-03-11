@@ -49,25 +49,6 @@ IGMPV3_IP = "224.0.0.22"
 SSDP = "239.255.255.250"
 INCLUDE_PHONE = False
 
-#Added other device's ipv4 and ipv6
-# TODO: Remove this ?
-AMAZON_ECHO = "192.168.1.150"
-AMAZON_ECHO_IPV6 = "fddd:ed18:f05b:0:adef:a05d:fcbe:afc9"
-
-DLINK_CAM = "192.168.1.115"
-
-PHILIPS_HUE = "192.168.1.141"
-PHILIPS_HUE_IPV6 = "fe80::217:88ff:fe74:c2dc"
-
-TPLINK_PLUG = "192.168.1.135"
-
-XIAOMI_CAM = "192.168.1.161"
-
-TUYA_MOTION = "192.168.1.102"
-
-SMARTTHINGS_HUB = "192.168.1.223"
-SMARTTHINGS_HUB_IPV6 = "fddd:ed18:f05b:0:d8a3:adc0:f68f:e5cf"
-
 
 def merge_nodes_on_port(children, port_attr, merge_attr):
     """
@@ -150,35 +131,6 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
     dns_map.add_ipv6("coap", "ff02::fd", "coap") # Based on https://www.rfc-editor.org/rfc/rfc7390.html
     dns_map.add_ipv6("coap", "ff05::fd", "coap") # Based on https://www.rfc-editor.org/rfc/rfc7390.html
     dns_map.add_ipv4("coap", "224.0.1.187", "coap") # Based on https://www.rfc-editor.org/rfc/rfc7390.html
-
-    # Add other IoT devices to DNS map
-    # TODO: Remove this ?
-    if AMAZON_ECHO != device_ipv4:
-        dns_map.add_ipv4("amazon-echo", AMAZON_ECHO, "amazon-echo")
-    if AMAZON_ECHO_IPV6 != device_ipv6:
-        dns_map.add_ipv6("amazon-echo", AMAZON_ECHO_IPV6, "amazon-echo")
-        
-    if DLINK_CAM != device_ipv4:
-        dns_map.add_ipv4("dlink-cam", DLINK_CAM, "dlink-cam")
-        
-    if PHILIPS_HUE != device_ipv4:
-        dns_map.add_ipv4("philips-hue", PHILIPS_HUE, "philips-hue")
-    if PHILIPS_HUE_IPV6 != device_ipv6:
-        dns_map.add_ipv6("philips-hue", PHILIPS_HUE_IPV6, "philips-hue")
-        
-    if TPLINK_PLUG != device_ipv4:
-        dns_map.add_ipv4("tplink-plug", TPLINK_PLUG, "tplink-plug")
-        
-    if XIAOMI_CAM != device_ipv4:
-        dns_map.add_ipv4("xiaomi-cam", XIAOMI_CAM, "xiaomi-cam")
-        
-    if TUYA_MOTION != device_ipv4:
-        dns_map.add_ipv4("tuya-motion", TUYA_MOTION, "tuya-motion")
-        
-    if SMARTTHINGS_HUB != device_ipv4:
-        dns_map.add_ipv4("smartthings-hub", SMARTTHINGS_HUB, "smartthings-hub")
-    if SMARTTHINGS_HUB_IPV6 != device_ipv6:
-        dns_map.add_ipv6("smartthings-hub", SMARTTHINGS_HUB_IPV6, "smartthings-hub" )
     
     i_packet = 0
     # MAIN LOOP
@@ -849,7 +801,14 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
     YamlResult = patternToYAML(pattern_list, dns_map)      
     return YamlResult
 
-def run(file_path:str, print_map:bool=False, print_tree:bool=False, print_patterns:bool=True):
+def run(file_path:str, print_map:bool=False, print_tree:bool=False, print_patterns:bool=True, phone_ipv4:str=None, phone_ipv6:str=None, use_phone:bool=False, force_device:int=None, force_gateway:int=None):
+    global PHONE_IPV6, PHONE, INCLUDE_PHONE
+    if phone_ipv4 is not None:
+        PHONE = phone_ipv4
+    if phone_ipv6 is not None:
+        PHONE_IPV6 = phone_ipv6
+    if use_phone:
+        INCLUDE_PHONE = True
     # Read the PCAP file
     print("Progress: Loading packets...")
     
@@ -868,24 +827,30 @@ def run(file_path:str, print_map:bool=False, print_tree:bool=False, print_patter
     print(table)
     
     # Ask the user to select the device to analyze
-    while True:
-        try:
-            device_number = int(input("Enter the number of the device to analyze: "))
-            if device_number < 1 or device_number > len(devices):
-                raise ValueError
-            break
-        except ValueError:
-            print("Invalid input. Please enter a number between 1 and " + str(len(devices)))
+    if force_device:
+        device_number = force_device
+    else:
+        while True:
+            try:
+                device_number = int(input("Enter the number of the device to analyze: "))
+                if device_number < 1 or device_number > len(devices):
+                    raise ValueError
+                break
+            except ValueError:
+                print("Invalid input. Please enter a number between 1 and " + str(len(devices)))
     device = devices[device_number-1]
     # Ask the user for a gateway
-    while True:
-        try:
-            gateway_number = int(input("Enter the number of the gateway device: "))
-            if gateway_number < 1 or gateway_number > len(devices):
-                raise ValueError
-            break
-        except ValueError:
-            print("Invalid input. Please enter a number between 1 and " + str(len(devices)))
+    if force_gateway:
+        gateway_number = force_gateway
+    else:
+        while True:
+            try:
+                gateway_number = int(input("Enter the number of the gateway device: "))
+                if gateway_number < 1 or gateway_number > len(devices):
+                    raise ValueError
+                break
+            except ValueError:
+                print("Invalid input. Please enter a number between 1 and " + str(len(devices)))
     gateway = devices[gateway_number-1]
     # Analyze packets
     patterns = analyzer(packets, device.ipv4, device.ipv6, device.mac, number_of_packets, device.name, gateway.ipv4, gateway.ipv6, gateway.mac, print_map, print_tree, True)
