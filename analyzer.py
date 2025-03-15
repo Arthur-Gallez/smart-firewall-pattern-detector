@@ -497,6 +497,8 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
 
                         if client_mac == device_mac:
                             client_mac = "self"
+                        else:
+                            continue
                         dhcp_packet = dhcp(dhcp_type_name, client_mac)
                         my_node_2 = None
                         for node in my_node_1.childrens:
@@ -597,6 +599,8 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                     tpa = packet[ARP].pdst  # Target Protocol (IPv4) address
                     arp_type = "request" if arp_type_number == 1 else "reply"
                     arp_packet = arp(arp_type, sha, spa, tha, tpa, mac_gateway)
+                    if device_mac not in [sha, tha]:
+                        continue
                     arp_packet.simplify(device_ipv4, device_mac)
                     my_node_0 = None
                     for node in patterns:
