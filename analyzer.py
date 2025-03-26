@@ -100,6 +100,9 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
         ipv4_gateway (str): IPv4 address of the gateway.
         ipv6_gateway (str): IPv6 address of the gateway.
         mac_gateway (str): MAC address of the gateway.
+        print_map (bool): Whether to print the DNS map.
+        print_tree (bool): Whether to print the pattern tree.
+        print_progress (bool): Whether to print the progress bar.
     """
     
     counter = 0
@@ -599,7 +602,7 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
                     tpa = packet[ARP].pdst  # Target Protocol (IPv4) address
                     arp_type = "request" if arp_type_number == 1 else "reply"
                     arp_packet = arp(arp_type, sha, spa, tha, tpa, mac_gateway)
-                    if device_mac not in [sha, tha]:
+                    if device_mac not in [sha, tha] and device_ipv4 not in [spa, tpa]:
                         continue
                     arp_packet.simplify(device_ipv4, device_mac)
                     my_node_0 = None
