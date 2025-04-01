@@ -64,7 +64,8 @@ def devices():
             'name': device.name,
             'mac': device.mac,
             'ipv4': device.ipv4,
-            'ipv6': device.ipv6
+            'ipv6': device.ipv6,
+            'suggested_gateway': True if device.ipv4 == "192.168.1.1" else False
         })
     return render_template('devices.html', devices=devices_list)
 

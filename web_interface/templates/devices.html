@@ -97,12 +97,15 @@
         {% for device in devices %}
         <div class="device">
             <input type="radio" id="gateway-{{ loop.index }}" name="gateway" 
-                   value="{{ device.mac }}|{{ device.ipv4 }}|{{ device.ipv6 }}|{{ loop.index }}" required>
+                   value="{{ device.mac }}|{{ device.ipv4 }}|{{ device.ipv6 }}|{{ loop.index }}" required {% if device.suggested_gateway %}checked{% endif %}>
             <label for="gateway-{{ loop.index }}">
                 <input type="text" name="gateway_name-{{ loop.index }}" value="{{ device.name }}" readonly>
                 <span>MAC Address: {{ device.mac }}</span>
                 <span>IPv4 Address: {{ device.ipv4 }}</span>
                 <span>IPv6 Address: {{ device.ipv6 }}</span>
+                {% if device.suggested_gateway %}
+                <span class="gateway-label">Suggested Gateway</span>
+                {% endif %}
             </label>
         </div>
         {% endfor %}

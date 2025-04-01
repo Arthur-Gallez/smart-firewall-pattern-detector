@@ -146,5 +146,5 @@ def findDevices(packets, number_of_packets: int, print_progress: bool):
             name = manuf.MacParser().get_manuf_long(mac)
             new_device = Device(mac=mac, ipv4=ipv4, ipv6=ipv6, name=name)
             devices.append(new_device)
-    print()
+    devices.sort(key=lambda x: "0.0.0.0" if x.ipv4 is None else x.ipv4)
     return devices

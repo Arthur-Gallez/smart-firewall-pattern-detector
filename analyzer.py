@@ -110,7 +110,7 @@ def analyzer(packets, device_ipv4:str, device_ipv6:str, device_mac:str, number_o
     patterns = []
     dns_map = DNSMap()
     # Adding special cases to the DNS map
-    device_name = device_name.replace(" ", "-")
+    device_name = device_name.replace(" ", "-").replace(".", "").replace("!", "").replace(":", "").replace(";", "").replace(",", "").replace("?", "").replace("'", "").replace('"', "")
     dns_map.add_ipv4("self", device_ipv4, device_name)
     dns_map.add_ipv6("self", device_ipv6, device_name)
     # Gateway
