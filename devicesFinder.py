@@ -84,7 +84,7 @@ def findDevices(packets, number_of_packets: int, print_progress: bool):
     devices = []
 
     print("Finding devices...")
-    i_packet = 0
+    i_packet = 1
     for packet in packets:
 
         if print_progress:
