@@ -7,6 +7,7 @@ import time
 import scapy.all as scapy
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy import stats
 
 def get_measures():
     commands_components = [
@@ -59,6 +60,10 @@ def generate_graphs(perfs):
     coefs = np.polyfit(packet_counts, avg_times, deg=1)
     slope, intercept = coefs
     regression_line = np.poly1d(coefs)
+    # get p-value using scipy.stats
+    a = stats.linregress(packet_counts, avg_times)
+    print(f"rvalue {a.rvalue:.4f}")
+    print(f"pvalue {a.pvalue:.4f}")
 
     x_vals = np.linspace(min(packet_counts), max(packet_counts), 100)
     plt.plot(x_vals, regression_line(x_vals), 'r--', label=f"y = {slope:.4f}x + {intercept:.4f}")
