@@ -22,8 +22,8 @@ plt.bar(x + bar_width/2, generated, width=bar_width, label='Generated')
 
 # Labeling
 plt.xlabel('Device')
-plt.ylabel('Number of Profiles')
-plt.title('Manual vs Generated Profiles per Device')
+plt.ylabel('Number of patterns')
+# plt.title('Manual vs Generated Profiles per Device')
 plt.xticks(x, devices, rotation=45, ha='right')
 plt.legend()
 
